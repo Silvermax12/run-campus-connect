@@ -1,0 +1,27 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper function to check if user is signed in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Profile Photos
+    // Path: users/{uid}/profile.jpg
+    // Write: Only the user can upload their own profile photo.
+    match /users/{uid}/profile.jpg {
+      allow read: if true; // Public read for profile photos
+      allow write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Post Images
+    // Path: posts/{uid}/{timestamp}.jpg
+    // Write: Only the user can upload images to their own folder.
+    match /posts/{uid}/{allPaths=**} {
+      allow read: if true; // Public read for post images
+      allow write: if isSignedIn() && request.auth.uid == uid;
+    }
+  }
+}
