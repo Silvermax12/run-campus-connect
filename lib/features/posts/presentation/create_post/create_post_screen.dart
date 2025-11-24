@@ -1,0 +1,155 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+
+import 'create_post_controller.dart';
+
+class CreatePostScreen extends ConsumerStatefulWidget {
+  const CreatePostScreen({super.key});
+
+  static const routeName = 'create-post';
+  static const routePath = '/create-post';
+
+  @override
+  ConsumerState<CreatePostScreen> createState() => _CreatePostScreenState();
+}
+
+class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
+  final _controller = TextEditingController();
+  final _picker = ImagePicker();
+  XFile? _selectedImage;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 1080,
+    );
+    if (image != null) {
+      setState(() {
+        _selectedImage = image;
+      });
+    }
+  }
+
+  Future<void> _removeImage() async {
+    setState(() {
+      _selectedImage = null;
+    });
+  }
+
+  Future<void> _submit() async {
+    final controller = ref.read(createPostControllerProvider.notifier);
+    try {
+      await controller.submit(
+        content: _controller.text,
+        imageFile: _selectedImage,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Post shared successfully!')),
+      );
+      Navigator.of(context).pop();
+    } catch (error) {
+      if (!mounted) return;
+      final message = error.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(createPostControllerProvider);
+    final isLoading = state.isLoading;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Create Post'),
+        actions: [
+          TextButton(
+            onPressed: isLoading ? null : _submit,
+            child:
+                isLoading
+                    ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Text('Share'),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                maxLines: null,
+                expands: true,
+                textAlignVertical: TextAlignVertical.top,
+                decoration: const InputDecoration(
+                  hintText: "What's happening on campus?",
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+            if (_selectedImage != null) ...[
+              const SizedBox(height: 12),
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.file(
+                      File(_selectedImage!.path),
+                      height: 220,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton(
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black54,
+                      ),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: isLoading ? null : _removeImage,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: isLoading ? null : _pickImage,
+                  icon: const Icon(Icons.image_outlined),
+                  label: const Text('Add image'),
+                ),
+                const Spacer(),
+                Text(
+                  '${_controller.text.trim().length}/500',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
