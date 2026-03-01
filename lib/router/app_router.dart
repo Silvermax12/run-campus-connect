@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../core/providers/firebase_providers.dart';
+import '../features/auth/presentation/fresher/fresher_signin_screen.dart';
+import '../features/auth/presentation/fresher/fresher_signup_screen.dart';
+import '../features/auth/presentation/fresher/pending_verification_screen.dart';
 import '../features/auth/presentation/login/login_screen.dart';
 import '../features/auth/presentation/verify/verify_email_screen.dart';
 import '../features/chat/presentation/chat_screen.dart';
@@ -33,32 +36,61 @@ GoRouter appRouter(Ref ref) {
       final isLoggingIn = path == LoginScreen.routePath;
       final isVerifying = path == VerifyEmailScreen.routePath;
       final isCreatingProfile = path == CreateProfileScreen.routePath;
+      final isFresherSignUp = path == FresherSignUpScreen.routePath;
+      final isFresherSignIn = path == FresherSignInScreen.routePath;
+      final isPendingVerification = path == PendingVerificationScreen.routePath;
 
-      // Not logged in → must be on login or verify pages
-      if (!isLoggedIn && !isLoggingIn && !isVerifying) {
+      // Allow unauthenticated access to auth-related pages
+      final isAuthPage = isLoggingIn ||
+          isVerifying ||
+          isFresherSignUp ||
+          isFresherSignIn ||
+          isPendingVerification;
+
+      // Not logged in → must be on an auth page
+      if (!isLoggedIn && !isAuthPage) {
         return LoginScreen.routePath;
       }
 
-      // Logged in but on login/verify page → check profile and redirect appropriately
-      if (isLoggedIn && (isLoggingIn || isVerifying)) {
-        // Check if user has a profile in Firestore
+      // Logged in but on login/verify/fresher-auth page → check profile and redirect
+      if (isLoggedIn && (isLoggingIn || isVerifying || isFresherSignUp || isFresherSignIn)) {
         final firestore = ref.read(firestoreProvider);
         final doc = await firestore.collection('users').doc(user!.uid).get();
         
         if (doc.exists) {
+          // If fresher and not yet verified, go to pending screen
+          final data = doc.data();
+          if (data != null &&
+              data['role'] == 'fresher' &&
+              data['isVerified'] == false) {
+            return PendingVerificationScreen.routePath;
+          }
           return HomeScreen.routePath;
         } else {
           return CreateProfileScreen.routePath;
         }
       }
 
-      // Logged in and trying to access app → check if profile exists
+      // Already on pending verification → let them stay
+      if (isLoggedIn && isPendingVerification) {
+        return null;
+      }
+
+      // Logged in and trying to access app → check if profile exists + fresher verification
       if (isLoggedIn && !isCreatingProfile) {
         final firestore = ref.read(firestoreProvider);
         final doc = await firestore.collection('users').doc(user!.uid).get();
         
         if (!doc.exists) {
           return CreateProfileScreen.routePath;
+        }
+
+        // Block unverified freshers from accessing the app
+        final data = doc.data();
+        if (data != null &&
+            data['role'] == 'fresher' &&
+            data['isVerified'] == false) {
+          return PendingVerificationScreen.routePath;
         }
       }
 
@@ -85,6 +117,27 @@ GoRouter appRouter(Ref ref) {
         pageBuilder:
             (context, state) =>
                 const NoTransitionPage(child: CreateProfileScreen()),
+      ),
+      GoRoute(
+        path: FresherSignUpScreen.routePath,
+        name: FresherSignUpScreen.routeName,
+        pageBuilder:
+            (context, state) =>
+                const NoTransitionPage(child: FresherSignUpScreen()),
+      ),
+      GoRoute(
+        path: FresherSignInScreen.routePath,
+        name: FresherSignInScreen.routeName,
+        pageBuilder:
+            (context, state) =>
+                const NoTransitionPage(child: FresherSignInScreen()),
+      ),
+      GoRoute(
+        path: PendingVerificationScreen.routePath,
+        name: PendingVerificationScreen.routeName,
+        pageBuilder:
+            (context, state) =>
+                const NoTransitionPage(child: PendingVerificationScreen()),
       ),
       StatefulShellRoute.indexedStack(
         builder:
