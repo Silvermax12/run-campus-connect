@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+requests
+cloudinary
+firebase-admin
+easyocr
+Pillow
