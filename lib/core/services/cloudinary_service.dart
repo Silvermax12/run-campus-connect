@@ -10,7 +10,7 @@ import '../config/cloudinary_config.dart';
 part 'cloudinary_service.g.dart';
 
 class CloudinaryService {
-  Future<String?> uploadFile(File file) async {
+  Future<String?> uploadFile(File file, {String folder = 'run_campus_posts'}) async {
     try {
       final request = http.MultipartRequest(
         'POST',
@@ -18,7 +18,7 @@ class CloudinaryService {
       );
 
       request.fields['upload_preset'] = CloudinaryConfig.uploadPreset;
-      request.fields['folder'] = 'run_campus_posts';
+      request.fields['folder'] = folder;
       
       request.files.add(
         await http.MultipartFile.fromPath('file', file.path),
