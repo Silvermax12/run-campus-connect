@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/providers/firebase_providers.dart';
+import '../../notifications/data/unread_badge_provider.dart';
 import '../../posts/presentation/create_post/create_post_screen.dart';
 import '../../chat/presentation/inbox_screen.dart';
 import '../../posts/presentation/feed/post_feed_controller.dart';
@@ -58,13 +60,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final feedState = ref.watch(postFeedControllerProvider);
+    final currentUser = ref.watch(firebaseAuthProvider).currentUser;
+    final unreadCountAsync = ref.watch(unreadBadgeProvider(currentUser?.uid ?? ''));
+    final unreadCount = unreadCountAsync.valueOrNull ?? 0;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Campus Connect'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.mail_outline),
+            icon: Badge(
+              isLabelVisible: unreadCount > 0,
+              label: Text('$unreadCount'),
+              child: const Icon(Icons.mail_outline),
+            ),
             onPressed: () => context.push(InboxScreen.routePath),
           ),
         ],
