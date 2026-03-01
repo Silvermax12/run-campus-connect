@@ -48,3 +48,8 @@ app.*.map.json
 **/*.keystore
 **/*.jks
 key.properties
+
+# Python backend
+python_backend/venv/
+python_backend/.env
+python_backend/serviceAccountKey.json
