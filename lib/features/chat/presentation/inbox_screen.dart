@@ -60,6 +60,9 @@ class _ChatListTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Fetch other user's details
     final otherUserAsync = ref.watch(userDocProvider(otherUserId));
+    final myUid = ref.watch(firebaseAuthProvider).currentUser?.uid;
+    final unreadCount = myUid != null ? (chat.unreadCounts[myUid] ?? 0) : 0;
+    final isUnread = unreadCount > 0;
 
     return otherUserAsync.when(
       data: (doc) {
@@ -68,6 +71,7 @@ class _ChatListTile extends ConsumerWidget {
         final photoUrl = data['photoUrl'] as String? ?? '';
 
         return ListTile(
+          tileColor: isUnread ? Theme.of(context).primaryColor.withOpacity(0.05) : null,
           leading: CircleAvatar(
             backgroundImage: photoUrl.isNotEmpty
                 ? CachedNetworkImageProvider(photoUrl)
@@ -76,15 +80,49 @@ class _ChatListTile extends ConsumerWidget {
                 ? Text(name.isNotEmpty ? name.characters.first : '?')
                 : null,
           ),
-          title: Text(name),
+          title: Text(
+            name,
+            style: TextStyle(
+              fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
           subtitle: Text(
             chat.lastMessage,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
+            ),
           ),
-          trailing: Text(
-            _formatTimestamp(chat.lastTime),
-            style: Theme.of(context).textTheme.bodySmall,
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _formatTimestamp(chat.lastTime),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              if (isUnread) ...[
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$unreadCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           onTap: () {
             context.push(ChatScreen.routePath(otherUserId), extra: name);
