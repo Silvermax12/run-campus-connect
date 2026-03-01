@@ -189,7 +189,7 @@ class _FriendActionButtons extends ConsumerWidget {
 
     // Get current user's profile for notification
     final myProfileAsync = ref.watch(
-      streamProvider(_firestore.collection('users').doc(myUid)),
+      streamProvider(FirebaseFirestore.instance.collection('users').doc(myUid)),
     );
 
     return Row(
