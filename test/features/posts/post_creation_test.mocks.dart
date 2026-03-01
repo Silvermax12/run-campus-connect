@@ -81,9 +81,12 @@ class MockCloudinaryService extends _i1.Mock implements _i5.CloudinaryService {
   }
 
   @override
-  _i6.Future<String?> uploadFile(_i7.File? file) =>
+  _i6.Future<String?> uploadFile(
+    _i7.File? file, {
+    String? folder = 'run_campus_posts',
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#uploadFile, [file]),
+            Invocation.method(#uploadFile, [file], {#folder: folder}),
             returnValue: _i6.Future<String?>.value(),
           )
           as _i6.Future<String?>);
