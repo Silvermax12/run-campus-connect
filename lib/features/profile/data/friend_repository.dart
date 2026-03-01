@@ -39,19 +39,19 @@ class FriendRepository {
   }) async {
     final batch = _firestore.batch();
 
-    // My side: pending_outgoing
+    // 1. My side: pending_outgoing
     batch.set(
       _friendDoc(myUid, targetUid),
       {'status': FriendStatus.pending_outgoing.name},
     );
 
-    // Target side: pending_incoming
+    // 2. Target side: pending_incoming
     batch.set(
       _friendDoc(targetUid, myUid),
       {'status': FriendStatus.pending_incoming.name},
     );
 
-    // Create notification for target user
+    // 3. CRITICAL: Create notification for target user
     final notificationRef = _firestore.collection('notifications').doc();
     batch.set(notificationRef, {
       'recipientId': targetUid,
@@ -66,6 +66,7 @@ class FriendRepository {
     });
 
     await batch.commit();
+    print('DEBUG: Friend Request & Notification Batch Sent');
   }
 
   Future<void> cancelFriendRequest({
