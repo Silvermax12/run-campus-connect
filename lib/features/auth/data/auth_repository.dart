@@ -1,9 +1,14 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../core/config/api_config.dart';
 import '../../../core/providers/firebase_providers.dart';
 import '../domain/auth_destination.dart';
 
@@ -131,6 +136,92 @@ class AuthRepository {
     await user.sendEmailVerification();
   }
 
+  // ─── Fresher Auth ───────────────────────────────────────────────────
+
+  Future<AuthDestination> signUpFresher({
+    required String fullName,
+    required String jambNumber,
+    required String department,
+    required String password,
+    required String cloudinaryUrl1,
+    required String cloudinaryUrl2,
+  }) async {
+    final email = '${jambNumber.trim().toLowerCase()}@fresher.run.edu.ng';
+
+    // 1. Create Firebase Auth user
+    final credentialResult = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    final user = credentialResult.user;
+    if (user == null) {
+      throw AuthFailure('Unable to create your fresher account.');
+    }
+
+    // 2. Save user data to Firestore
+    await _firestore.collection('users').doc(user.uid).set({
+      'uid': user.uid,
+      'email': email,
+      'displayName': fullName.trim(),
+      'jambNumber': jambNumber.trim().toUpperCase(),
+      'department': department.trim(),
+      'isVerified': false,
+      'role': 'fresher',
+      'photoUrl': '',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    // 3. Call the Python verification backend (fire-and-forget style)
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.verifyEndpoint),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'uid': user.uid,
+          'jambNumber': jambNumber.trim().toUpperCase(),
+          'fullName': fullName.trim(),
+          'slipUrl': cloudinaryUrl1,
+          'admissionUrl': cloudinaryUrl2,
+        }),
+      );
+      debugPrint('Verification API response: ${response.statusCode} ${response.body}');
+    } catch (e) {
+      // Don't block sign-up if the verification call fails
+      debugPrint('Verification API call failed (non-fatal): $e');
+    }
+
+    return AuthDestination.pendingVerification;
+  }
+
+  Future<AuthDestination> signInFresher({
+    required String jambNumber,
+    required String password,
+  }) async {
+    final email = '${jambNumber.trim().toLowerCase()}@fresher.run.edu.ng';
+
+    final credentialResult = await _auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    final user = credentialResult.user;
+    if (user == null) {
+      throw AuthFailure('Could not sign you in. Please try again.');
+    }
+
+    // Check verification status
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    if (doc.exists) {
+      final data = doc.data();
+      if (data != null && data['isVerified'] == false) {
+        return AuthDestination.pendingVerification;
+      }
+    }
+
+    return AuthDestination.home;
+  }
+
+  // ─── Common ────────────────────────────────────────────────────────
+
   Future<void> signOut() async {
     await _auth.signOut();
     await _googleSignIn.signOut();
@@ -146,6 +237,7 @@ class AuthRepository {
 
   bool _isRunEmail(String? email) {
     if (email == null) return false;
-    return email.trim().toLowerCase().endsWith('@run.edu.ng');
+    final lower = email.trim().toLowerCase();
+    return lower.endsWith('@run.edu.ng') || lower.endsWith('@fresher.run.edu.ng');
   }
 }
