@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/firebase_providers.dart';
 import '../../profile/data/friend_repository.dart';
 import '../../profile/presentation/user_profile_screen.dart';
+import '../data/notifications_provider.dart';
 import '../domain/notification.dart' as domain;
 
 class NotificationsScreen extends ConsumerWidget {
@@ -24,7 +25,7 @@ class NotificationsScreen extends ConsumerWidget {
       );
     }
 
-    final notificationsStream = ref.watch(notificationsStreamProvider(myUid));
+    final notificationsStream = ref.watch(notificationsProvider(myUid));
 
     return Scaffold(
       appBar: AppBar(
@@ -132,16 +133,3 @@ class _NotificationTile extends ConsumerWidget {
     }
   }
 }
-
-// Provider for notifications stream
-final notificationsStreamProvider = StreamProvider.family<List<domain.Notification>, String>((ref, myUid) {
-  final firestore = ref.watch(firestoreProvider);
-  return firestore
-      .collection('notifications')
-      .where('recipientId', isEqualTo: myUid)
-      .orderBy('timestamp', descending: true)
-      .limit(50)
-      .snapshots()
-      .map((snapshot) =>
-          snapshot.docs.map((doc) => domain.Notification.fromSnapshot(doc)).toList());
-});
