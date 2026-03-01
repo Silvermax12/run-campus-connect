@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class AppShell extends StatelessWidget {
+import '../../core/providers/firebase_providers.dart';
+import '../../features/notifications/data/notifications_provider.dart';
+
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
@@ -14,27 +18,38 @@ class AppShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final myUid = ref.watch(firebaseAuthProvider).currentUser?.uid;
+    final notificationsAsync = ref.watch(notificationsProvider(myUid ?? ''));
+    
+    final unreadCount = notificationsAsync.valueOrNull
+        ?.where((n) => !n.isRead)
+        .length ?? 0;
+
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: navigationShell.currentIndex,
         onTap: _onDestinationSelected,
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             label: 'Home',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.search_outlined),
             label: 'Explore',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_outlined),
+            icon: Badge(
+              isLabelVisible: unreadCount > 0,
+              label: Text('$unreadCount'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
             label: 'Notifications',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             label: 'Profile',
           ),
