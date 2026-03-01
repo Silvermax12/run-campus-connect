@@ -1,1 +1,1 @@
-enum AuthDestination { home, createProfile, verifyEmail }
+enum AuthDestination { home, createProfile, verifyEmail, pendingVerification }
