@@ -8,6 +8,8 @@ import '../../data/auth_repository.dart';
 import 'login_controller.dart';
 import '../../../home/presentation/home_screen.dart';
 import '../../../profile/presentation/create_profile_screen.dart';
+import '../fresher/fresher_signup_screen.dart';
+import '../fresher/fresher_signin_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -75,6 +77,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         break;
       case AuthDestination.verifyEmail:
         context.go(VerifyEmailScreen.routePath);
+        break;
+      case AuthDestination.pendingVerification:
+        // Not expected from the regular login flow, but handled for exhaustiveness
         break;
     }
   }
@@ -219,6 +224,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ],
                     ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // ── Fresher Links ──
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Are you a Fresher?',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: isLoading
+                                  ? null
+                                  : () => context.go(FresherSignUpScreen.routePath),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 10),
+                                child: Text('Fresher Sign Up'),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: isLoading
+                                  ? null
+                                  : () => context.go(FresherSignInScreen.routePath),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 10),
+                                child: Text('Fresher Login'),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
