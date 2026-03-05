@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../domain/post_visibility.dart';
 import 'create_post_controller.dart';
 
 class CreatePostScreen extends ConsumerStatefulWidget {
@@ -20,6 +21,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   final _controller = TextEditingController();
   final _picker = ImagePicker();
   XFile? _selectedImage;
+  PostVisibility _visibility = PostVisibility.public;
 
   @override
   void dispose() {
@@ -51,6 +53,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     try {
       await controller.submit(
         content: _controller.text,
+        visibility: _visibility,
         imageFile: _selectedImage,
       );
       if (!mounted) return;
@@ -133,6 +136,36 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
               ),
             ],
             const SizedBox(height: 12),
+
+            // ── Visibility selector ──────────────────────────────────────
+            Row(
+              children: [
+                const Icon(Icons.visibility_outlined, size: 20),
+                const SizedBox(width: 8),
+                const Text('Post to:'),
+                const SizedBox(width: 8),
+                DropdownButton<PostVisibility>(
+                  value: _visibility,
+                  underline: const SizedBox.shrink(),
+                  borderRadius: BorderRadius.circular(12),
+                  items: PostVisibility.values.map((v) {
+                    return DropdownMenuItem(
+                      value: v,
+                      child: Text(v.label),
+                    );
+                  }).toList(),
+                  onChanged: isLoading
+                      ? null
+                      : (value) {
+                          if (value != null) {
+                            setState(() => _visibility = value);
+                          }
+                        },
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
             Row(
               children: [
                 OutlinedButton.icon(

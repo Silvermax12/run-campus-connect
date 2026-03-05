@@ -8,6 +8,7 @@ import 'package:mockito/mockito.dart';
 import 'package:run_campus_connect/core/providers/firebase_providers.dart';
 import 'package:run_campus_connect/features/posts/application/like_service.dart';
 import 'package:run_campus_connect/features/posts/domain/post.dart';
+import 'package:run_campus_connect/features/posts/domain/post_visibility.dart';
 import 'package:run_campus_connect/features/posts/presentation/widgets/post_card.dart';
 
 import 'post_card_test.mocks.dart';
@@ -49,6 +50,9 @@ void main() {
       commentCount: 3,
       author: authorSnapshot,
       snapshot: mockSnapshot,
+      visibility: PostVisibility.public,
+      faculty: '',
+      department: authorDept,
     );
   }
 
@@ -118,6 +122,9 @@ void main() {
         commentCount: 5,
         author: authorSnapshot,
         snapshot: mockSnapshot,
+        visibility: PostVisibility.public,
+        faculty: '',
+        department: 'Engineering',
       );
 
       // Act

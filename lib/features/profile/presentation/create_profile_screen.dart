@@ -19,6 +19,7 @@ class CreateProfileScreen extends ConsumerStatefulWidget {
 class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _facultyController = TextEditingController();
   final _deptController = TextEditingController();
   final _bioController = TextEditingController();
   
@@ -43,6 +44,7 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _facultyController.dispose();
     _deptController.dispose();
     _bioController.dispose();
     super.dispose();
@@ -65,6 +67,7 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
         'uid': user.uid,
         'email': user.email,
         'displayName': _nameController.text.trim(),
+        'faculty': _facultyController.text.trim(),
         'department': _deptController.text.trim(),
         'level': _selectedLevel,
         'bio': _bioController.text.trim(),
@@ -139,6 +142,25 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
                   }
                   if (value.trim().length < 3) {
                     return 'Name must be at least 3 characters';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Faculty
+              TextFormField(
+                controller: _facultyController,
+                decoration: const InputDecoration(
+                  labelText: 'Faculty',
+                  hintText: 'e.g., Natural Sciences',
+                  prefixIcon: Icon(Icons.account_balance_outlined),
+                  border: OutlineInputBorder(),
+                ),
+                textCapitalization: TextCapitalization.words,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Faculty is required';
                   }
                   return null;
                 },

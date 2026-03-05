@@ -4,11 +4,16 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   AppTheme._();
 
+  // ── RUN Brand Colours ──────────────────────────────────────────────────────
+  static const Color runBlue = Color(0xFF003366);
+  static const Color runGold = Color(0xFFFFCC00);
+
   static ThemeData get light {
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF4169E1),
+        seedColor: runBlue,
+        secondary: runGold,
         brightness: Brightness.light,
       ),
     );
@@ -18,6 +23,21 @@ class AppTheme {
     return base.copyWith(
       scaffoldBackgroundColor: Colors.grey.shade50,
       textTheme: textTheme,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: runBlue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white70,
+        indicatorColor: runGold,
+        indicatorSize: TabBarIndicatorSize.label,
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: runBlue,
+        foregroundColor: runGold,
+      ),
       cardTheme: CardTheme(
         elevation: 0,
         color: Colors.white,
@@ -36,7 +56,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF4169E1), width: 1.5),
+          borderSide: const BorderSide(color: runBlue, width: 1.5),
         ),
       ),
     );

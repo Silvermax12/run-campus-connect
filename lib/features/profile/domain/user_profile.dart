@@ -3,6 +3,7 @@ class UserProfile {
     required this.uid,
     required this.email,
     required this.displayName,
+    required this.faculty,
     required this.department,
     required this.level,
     required this.photoUrl,
@@ -11,6 +12,7 @@ class UserProfile {
   final String uid;
   final String email;
   final String displayName;
+  final String faculty;
   final String department;
   final String level;
   final String photoUrl;
@@ -20,6 +22,7 @@ class UserProfile {
       uid: uid,
       email: data['email'] as String? ?? '',
       displayName: data['displayName'] as String? ?? '',
+      faculty: data['faculty'] as String? ?? '',
       department: data['department'] as String? ?? '',
       level: data['level'] as String? ?? '',
       photoUrl: data['photoUrl'] as String? ?? '',
@@ -30,6 +33,7 @@ class UserProfile {
     uid: '',
     email: '',
     displayName: '',
+    faculty: '',
     department: '',
     level: '',
     photoUrl: '',

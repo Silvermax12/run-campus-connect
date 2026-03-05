@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'post_visibility.dart';
+
 class PostAuthorSnapshot {
   const PostAuthorSnapshot({
     required this.uid,
@@ -37,6 +39,9 @@ class Post {
     required this.commentCount,
     required this.author,
     required this.snapshot,
+    required this.visibility,
+    required this.faculty,
+    required this.department,
   });
 
   final String id;
@@ -47,6 +52,9 @@ class Post {
   final int commentCount;
   final PostAuthorSnapshot author;
   final DocumentSnapshot<Map<String, dynamic>> snapshot;
+  final PostVisibility visibility;
+  final String faculty;
+  final String department;
 
   factory Post.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
@@ -61,6 +69,10 @@ class Post {
         (data['authorSnapshot'] as Map<String, dynamic>? ?? {}),
       ),
       snapshot: doc,
+      visibility: PostVisibility.fromString(data['visibility'] as String?),
+      faculty: data['faculty'] as String? ?? '',
+      department: data['department'] as String? ?? '',
     );
   }
 }
+

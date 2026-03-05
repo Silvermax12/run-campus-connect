@@ -8,6 +8,7 @@ import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:run_campus_connect/core/services/cloudinary_service.dart';
 import 'package:run_campus_connect/features/posts/data/post_repository.dart';
+import 'package:run_campus_connect/features/posts/domain/post_visibility.dart';
 import 'package:run_campus_connect/features/profile/domain/user_profile.dart';
 
 import 'post_creation_test.mocks.dart';
@@ -60,6 +61,7 @@ void main() {
         uid: userId,
         email: userEmail,
         displayName: userName,
+        faculty: 'Natural Sciences',
         department: userDept,
         level: userLevel,
         photoUrl: userPhoto,
@@ -71,6 +73,7 @@ void main() {
       await postRepository.createPost(
         content: postContent,
         author: userProfile,
+        visibility: PostVisibility.public,
         imageFile: null,
       );
 
@@ -104,6 +107,7 @@ void main() {
         uid: userId,
         email: 'user@run.edu.ng',
         displayName: 'Test User',
+        faculty: 'Engineering',
         department: 'Engineering',
         level: '200',
         photoUrl: '',
@@ -120,6 +124,7 @@ void main() {
       await postRepository.createPost(
         content: 'Post with image',
         author: userProfile,
+        visibility: PostVisibility.public,
         imageFile: mockImageFile,
       );
 
@@ -142,6 +147,7 @@ void main() {
         uid: 'test-id',
         email: 'user@run.edu.ng',
         displayName: 'Test',
+        faculty: 'Sciences',
         department: 'CS',
         level: '100',
         photoUrl: '',
@@ -152,6 +158,7 @@ void main() {
         () => postRepository.createPost(
           content: 'Test content',
           author: userProfile,
+          visibility: PostVisibility.public,
         ),
         throwsException,
       );
