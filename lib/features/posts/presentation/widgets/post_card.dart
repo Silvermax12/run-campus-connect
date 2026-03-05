@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../application/like_service.dart';
+import '../../data/post_repository.dart';
 import '../../domain/post.dart';
 import '../../../../core/providers/firebase_providers.dart';
 import '../comments/comment_screen.dart';
@@ -138,15 +139,25 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen to real-time syncs from Firestore streams to update local state if it drifts.
+    ref.listen(checkPostLikedProvider(postId: widget.post.id), (_, next) {
+      if (next.hasValue && next.value != null && _isLiked != next.value) {
+        setState(() => _isLiked = next.value);
+      }
+    });
+
+    ref.listen(postStreamProvider(widget.post.id), (_, next) {
+      if (next.hasValue && next.value != null && _likeCount != next.value!.likeCount) {
+        setState(() => _likeCount = next.value!.likeCount);
+      }
+    });
+
+    // We also eagerly watch the providers so the widget rebuilds when data changes.
     final isLikedAsync = ref.watch(checkPostLikedProvider(postId: widget.post.id));
+    final postAsync = ref.watch(postStreamProvider(widget.post.id));
 
-    // Initialize local state from provider if not yet set
-    if (_isLiked == null && isLikedAsync.hasValue) {
-      _isLiked = isLikedAsync.value;
-    }
-
-    final isLiked = _isLiked ?? false;
-    final likeCount = _likeCount ?? widget.post.likeCount;
+    final isLiked = _isLiked ?? isLikedAsync.value ?? false;
+    final likeCount = _likeCount ?? postAsync.value?.likeCount ?? widget.post.likeCount;
 
     return InkWell(
       onTap: () => _toggleLike(isLiked),
