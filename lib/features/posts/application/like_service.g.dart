@@ -22,7 +22,7 @@ final likeServiceProvider = Provider<LikeService>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef LikeServiceRef = ProviderRef<LikeService>;
-String _$checkPostLikedHash() => r'6627a6cf1aad732379d8036d2d6fc51074658ddc';
+String _$checkPostLikedHash() => r'55fc0274c330170b011de4c685085f35bd893cd9';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -82,7 +82,7 @@ class CheckPostLikedFamily extends Family<AsyncValue<bool>> {
 }
 
 /// See also [checkPostLiked].
-class CheckPostLikedProvider extends AutoDisposeFutureProvider<bool> {
+class CheckPostLikedProvider extends AutoDisposeStreamProvider<bool> {
   /// See also [checkPostLiked].
   CheckPostLikedProvider({required String postId})
     : this._internal(
@@ -113,7 +113,7 @@ class CheckPostLikedProvider extends AutoDisposeFutureProvider<bool> {
 
   @override
   Override overrideWith(
-    FutureOr<bool> Function(CheckPostLikedRef provider) create,
+    Stream<bool> Function(CheckPostLikedRef provider) create,
   ) {
     return ProviderOverride(
       origin: this,
@@ -130,7 +130,7 @@ class CheckPostLikedProvider extends AutoDisposeFutureProvider<bool> {
   }
 
   @override
-  AutoDisposeFutureProviderElement<bool> createElement() {
+  AutoDisposeStreamProviderElement<bool> createElement() {
     return _CheckPostLikedProviderElement(this);
   }
 
@@ -150,13 +150,13 @@ class CheckPostLikedProvider extends AutoDisposeFutureProvider<bool> {
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-mixin CheckPostLikedRef on AutoDisposeFutureProviderRef<bool> {
+mixin CheckPostLikedRef on AutoDisposeStreamProviderRef<bool> {
   /// The parameter `postId` of this provider.
   String get postId;
 }
 
 class _CheckPostLikedProviderElement
-    extends AutoDisposeFutureProviderElement<bool>
+    extends AutoDisposeStreamProviderElement<bool>
     with CheckPostLikedRef {
   _CheckPostLikedProviderElement(super.provider);
 
