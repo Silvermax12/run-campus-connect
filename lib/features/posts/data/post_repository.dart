@@ -69,6 +69,14 @@ class PostRepository {
         .map((snapshot) => snapshot.docs.map(Post.fromSnapshot).toList());
   }
 
+  /// Single post stream for real-time like counts and updates.
+  Stream<Post?> watchPost(String postId) {
+    return _postsRef.doc(postId).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return Post.fromSnapshot(doc);
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Pagination (one-shot)
   // ---------------------------------------------------------------------------
@@ -186,4 +194,9 @@ Stream<List<Post>> facultyPostsStream(rpd.Ref ref, String faculty) {
 @Riverpod(keepAlive: true)
 Stream<List<Post>> departmentPostsStream(rpd.Ref ref, String department) {
   return ref.watch(postRepositoryProvider).watchDepartmentPosts(department);
+}
+
+@Riverpod(keepAlive: true)
+Stream<Post?> postStream(rpd.Ref ref, String postId) {
+  return ref.watch(postRepositoryProvider).watchPost(postId);
 }
