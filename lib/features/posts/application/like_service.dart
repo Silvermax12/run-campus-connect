@@ -58,12 +58,25 @@ class LikeService {
         .get();
     return doc.exists;
   }
+
+  Stream<bool> watchIsPostLiked({
+    required String postId,
+    required String userId,
+  }) {
+    return firestore
+        .collection('posts')
+        .doc(postId)
+        .collection('likes')
+        .doc(userId)
+        .snapshots()
+        .map((doc) => doc.exists);
+  }
 }
 
 @riverpod
-Future<bool> checkPostLiked(Ref ref, {required String postId}) async {
+Stream<bool> checkPostLiked(Ref ref, {required String postId}) {
   final user = ref.watch(firebaseAuthProvider).currentUser;
-  if (user == null) return false;
+  if (user == null) return Stream.value(false);
   final service = ref.watch(likeServiceProvider);
-  return service.isPostLiked(postId: postId, userId: user.uid);
+  return service.watchIsPostLiked(postId: postId, userId: user.uid);
 }
