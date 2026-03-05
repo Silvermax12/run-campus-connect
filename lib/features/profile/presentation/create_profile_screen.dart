@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/university_data.dart';
 import '../../../core/providers/firebase_providers.dart';
 import '../../home/presentation/home_screen.dart';
 
@@ -19,10 +20,10 @@ class CreateProfileScreen extends ConsumerStatefulWidget {
 class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _facultyController = TextEditingController();
-  final _deptController = TextEditingController();
   final _bioController = TextEditingController();
   
+  String? _selectedFaculty;
+  String? _selectedDepartment;
   String _selectedLevel = '100';
   bool _isLoading = false;
 
@@ -44,8 +45,6 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _facultyController.dispose();
-    _deptController.dispose();
     _bioController.dispose();
     super.dispose();
   }
@@ -67,8 +66,8 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
         'uid': user.uid,
         'email': user.email,
         'displayName': _nameController.text.trim(),
-        'faculty': _facultyController.text.trim(),
-        'department': _deptController.text.trim(),
+        'faculty': _selectedFaculty ?? '',
+        'department': _selectedDepartment ?? '',
         'level': _selectedLevel,
         'bio': _bioController.text.trim(),
         'photoUrl': user.photoURL ?? '',
@@ -148,18 +147,28 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Faculty
-              TextFormField(
-                controller: _facultyController,
+              // Faculty Dropdown
+              DropdownButtonFormField<String>(
+                value: _selectedFaculty,
                 decoration: const InputDecoration(
                   labelText: 'Faculty',
-                  hintText: 'e.g., Natural Sciences',
                   prefixIcon: Icon(Icons.account_balance_outlined),
                   border: OutlineInputBorder(),
                 ),
-                textCapitalization: TextCapitalization.words,
+                isExpanded: true,
+                items: RunUniversityData.faculties.map((faculty) {
+                  return DropdownMenuItem(
+                    value: faculty,
+                    child: Text(faculty, overflow: TextOverflow.ellipsis),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedFaculty = value);
+                  }
+                },
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
+                  if (value == null || value.isEmpty) {
                     return 'Faculty is required';
                   }
                   return null;
@@ -167,18 +176,28 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Department
-              TextFormField(
-                controller: _deptController,
+              // Department Dropdown
+              DropdownButtonFormField<String>(
+                value: _selectedDepartment,
                 decoration: const InputDecoration(
                   labelText: 'Department',
-                  hintText: 'e.g., Computer Science',
                   prefixIcon: Icon(Icons.school_outlined),
                   border: OutlineInputBorder(),
                 ),
-                textCapitalization: TextCapitalization.words,
+                isExpanded: true,
+                items: RunUniversityData.departments.map((dept) {
+                  return DropdownMenuItem(
+                    value: dept,
+                    child: Text(dept, overflow: TextOverflow.ellipsis),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedDepartment = value);
+                  }
+                },
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
+                  if (value == null || value.isEmpty) {
                     return 'Department is required';
                   }
                   return null;
