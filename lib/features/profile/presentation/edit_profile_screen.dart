@@ -18,6 +18,7 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _facultyController = TextEditingController();
   final _deptController = TextEditingController();
   final _bioController = TextEditingController();
 
@@ -40,6 +41,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (doc.exists) {
       final data = doc.data()!;
       _nameController.text = data['displayName'] as String? ?? user.displayName ?? '';
+      _facultyController.text = data['faculty'] as String? ?? '';
       _deptController.text = data['department'] as String? ?? '';
       _bioController.text = data['bio'] as String? ?? '';
     }
@@ -48,6 +50,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _facultyController.dispose();
     _deptController.dispose();
     _bioController.dispose();
     super.dispose();
@@ -58,6 +61,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     await ref.read(profileControllerProvider.notifier).updateProfile(
           name: _nameController.text.trim(),
+          faculty: _facultyController.text.trim(),
           department: _deptController.text.trim(),
           bio: _bioController.text.trim(),
         );
@@ -97,6 +101,20 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Name is required';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _facultyController,
+                decoration: const InputDecoration(
+                  labelText: 'Faculty',
+                  prefixIcon: Icon(Icons.account_balance_outlined),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Faculty is required';
                   }
                   return null;
                 },

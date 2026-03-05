@@ -145,7 +145,7 @@ class _UserPostsProviderElement
   String get userId => (origin as UserPostsProvider).userId;
 }
 
-String _$profileControllerHash() => r'2faafaf704f3912d9b73846fb060ba91fbf216c4';
+String _$profileControllerHash() => r'3b4523b63279f9c4dbb044169e37badf08d1f560';
 
 /// See also [ProfileController].
 @ProviderFor(ProfileController)

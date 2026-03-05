@@ -9,6 +9,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/providers/firebase_providers.dart';
 import '../../profile/domain/user_profile.dart';
 import '../domain/post.dart';
+import '../domain/post_visibility.dart';
 
 part 'post_repository.g.dart';
 
@@ -30,7 +31,12 @@ class PostRepository {
   CollectionReference<Map<String, dynamic>> get _postsRef =>
       _firestore.collection('posts');
 
-  Stream<List<Post>> watchRecentPosts({int limit = pageSize}) {
+  // ---------------------------------------------------------------------------
+  // Streams (real-time)
+  // ---------------------------------------------------------------------------
+
+  /// Global feed — returns ALL posts regardless of visibility.
+  Stream<List<Post>> watchGlobalPosts({int limit = pageSize}) {
     return _postsRef
         .orderBy('timestamp', descending: true)
         .limit(limit)
@@ -38,7 +44,36 @@ class PostRepository {
         .map((snapshot) => snapshot.docs.map(Post.fromSnapshot).toList());
   }
 
-  Future<List<Post>> fetchMorePosts({
+  /// Faculty feed — only posts where visibility == 'faculty' AND matching
+  /// faculty string.
+  Stream<List<Post>> watchFacultyPosts(String faculty, {int limit = pageSize}) {
+    return _postsRef
+        .where('visibility', isEqualTo: 'faculty')
+        .where('faculty', isEqualTo: faculty)
+        .orderBy('timestamp', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map(Post.fromSnapshot).toList());
+  }
+
+  /// Department feed — only posts where visibility == 'department' AND matching
+  /// department string.
+  Stream<List<Post>> watchDepartmentPosts(String department,
+      {int limit = pageSize}) {
+    return _postsRef
+        .where('visibility', isEqualTo: 'department')
+        .where('department', isEqualTo: department)
+        .orderBy('timestamp', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map(Post.fromSnapshot).toList());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pagination (one-shot)
+  // ---------------------------------------------------------------------------
+
+  Future<List<Post>> fetchMoreGlobalPosts({
     DocumentSnapshot<Map<String, dynamic>>? startAfter,
     int limit = pageSize,
   }) async {
@@ -52,9 +87,48 @@ class PostRepository {
     return snapshot.docs.map(Post.fromSnapshot).toList();
   }
 
+  Future<List<Post>> fetchMoreFacultyPosts({
+    required String faculty,
+    DocumentSnapshot<Map<String, dynamic>>? startAfter,
+    int limit = pageSize,
+  }) async {
+    Query<Map<String, dynamic>> query = _postsRef
+        .where('visibility', isEqualTo: 'faculty')
+        .where('faculty', isEqualTo: faculty)
+        .orderBy('timestamp', descending: true)
+        .limit(limit);
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+    final snapshot = await query.get();
+    return snapshot.docs.map(Post.fromSnapshot).toList();
+  }
+
+  Future<List<Post>> fetchMoreDepartmentPosts({
+    required String department,
+    DocumentSnapshot<Map<String, dynamic>>? startAfter,
+    int limit = pageSize,
+  }) async {
+    Query<Map<String, dynamic>> query = _postsRef
+        .where('visibility', isEqualTo: 'department')
+        .where('department', isEqualTo: department)
+        .orderBy('timestamp', descending: true)
+        .limit(limit);
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+    final snapshot = await query.get();
+    return snapshot.docs.map(Post.fromSnapshot).toList();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Create
+  // ---------------------------------------------------------------------------
+
   Future<void> createPost({
     required String content,
     required UserProfile author,
+    required PostVisibility visibility,
     File? imageFile,
   }) async {
     final user = _auth.currentUser;
@@ -81,6 +155,9 @@ class PostRepository {
         'dept': author.department,
         'photo': author.photoUrl,
       },
+      'visibility': visibility.toFirestoreValue(),
+      'faculty': author.faculty,
+      'department': author.department,
     };
 
     await docRef.set(payload);
@@ -97,6 +174,16 @@ PostRepository postRepository(rpd.Ref ref) {
 }
 
 @Riverpod(keepAlive: true)
-Stream<List<Post>> postsStream(rpd.Ref ref) {
-  return ref.watch(postRepositoryProvider).watchRecentPosts();
+Stream<List<Post>> globalPostsStream(rpd.Ref ref) {
+  return ref.watch(postRepositoryProvider).watchGlobalPosts();
+}
+
+@Riverpod(keepAlive: true)
+Stream<List<Post>> facultyPostsStream(rpd.Ref ref, String faculty) {
+  return ref.watch(postRepositoryProvider).watchFacultyPosts(faculty);
+}
+
+@Riverpod(keepAlive: true)
+Stream<List<Post>> departmentPostsStream(rpd.Ref ref, String department) {
+  return ref.watch(postRepositoryProvider).watchDepartmentPosts(department);
 }

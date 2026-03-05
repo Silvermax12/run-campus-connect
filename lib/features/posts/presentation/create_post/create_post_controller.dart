@@ -7,6 +7,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../profile/data/profile_repository.dart';
 import '../../../profile/domain/user_profile.dart';
 import '../../data/post_repository.dart';
+import '../../domain/post_visibility.dart';
 
 part 'create_post_controller.g.dart';
 
@@ -17,7 +18,11 @@ class CreatePostController extends _$CreatePostController {
 
   PostRepository get _repository => ref.read(postRepositoryProvider);
 
-  Future<void> submit({required String content, XFile? imageFile}) async {
+  Future<void> submit({
+    required String content,
+    required PostVisibility visibility,
+    XFile? imageFile,
+  }) async {
     if (content.trim().isEmpty && imageFile == null) {
       state = rpd.AsyncError(
         'Add some text or attach an image.',
@@ -31,6 +36,7 @@ class CreatePostController extends _$CreatePostController {
       await _repository.createPost(
         content: content,
         author: profile,
+        visibility: visibility,
         imageFile: imageFile != null ? File(imageFile.path) : null,
       );
       state = const rpd.AsyncData(null);

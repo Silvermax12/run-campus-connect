@@ -34,6 +34,7 @@ class ProfileController extends _$ProfileController {
 
   Future<void> updateProfile({
     required String name,
+    required String faculty,
     required String department,
     required String bio,
   }) async {
@@ -50,6 +51,7 @@ class ProfileController extends _$ProfileController {
       // Update Firestore User Doc
       await firestore.collection('users').doc(user.uid).update({
         'displayName': name,
+        'faculty': faculty,
         'department': department,
         'bio': bio,
       });
