@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/firebase_providers.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../notifications/data/unread_badge_provider.dart';
 import '../../posts/presentation/create_post/create_post_screen.dart';
 import '../../chat/presentation/inbox_screen.dart';
+import '../../posts/data/post_repository.dart';
 import '../../posts/presentation/feed/post_feed_controller.dart';
 import '../../posts/presentation/widgets/post_card.dart';
 import '../../profile/data/profile_repository.dart';
@@ -51,7 +53,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Campus Connect'),
+        title: Row(
+          children: [
+            // ── RUN Logo (WhatsApp-style) ────────────────────────────────
+            ClipOval(
+              child: Image.asset(
+                'assets/images/run_logo.jpg',
+                width: 36,
+                height: 36,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text('Campus Connect'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: Badge(
@@ -80,8 +96,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        backgroundColor: AppTheme.runBlue,
         onPressed: () => context.push(CreatePostScreen.routePath),
-        child: const Icon(Icons.edit),
+        child: const Icon(Icons.edit_note, color: AppTheme.runGold),
       ),
     );
   }
@@ -135,9 +152,23 @@ class _FeedTabState extends ConsumerState<_FeedTab>
   }
 
   Future<void> _onRefresh() async {
+    // 1. Invalidate the underlying Firestore stream so it re-subscribes.
+    switch (widget.feedType) {
+      case FeedType.global:
+        ref.invalidate(globalPostsStreamProvider);
+        break;
+      case FeedType.faculty:
+        ref.invalidate(facultyPostsStreamProvider(widget.filterValue));
+        break;
+      case FeedType.department:
+        ref.invalidate(departmentPostsStreamProvider(widget.filterValue));
+        break;
+    }
+    // 2. Re-create the feed controller so it picks up the fresh stream.
     ref.invalidate(
         postFeedControllerProvider(widget.feedType, widget.filterValue));
-    await Future.delayed(const Duration(milliseconds: 500));
+    // 3. Give the new providers time to initialise and the stream to emit.
+    await Future.delayed(const Duration(milliseconds: 800));
   }
 
   @override
