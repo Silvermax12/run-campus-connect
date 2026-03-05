@@ -7,6 +7,7 @@ import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:run_campus_connect/core/providers/firebase_providers.dart';
 import 'package:run_campus_connect/features/posts/application/like_service.dart';
+import 'package:run_campus_connect/features/posts/data/post_repository.dart';
 import 'package:run_campus_connect/features/posts/domain/post.dart';
 import 'package:run_campus_connect/features/posts/domain/post_visibility.dart';
 import 'package:run_campus_connect/features/posts/presentation/widgets/post_card.dart';
@@ -66,7 +67,11 @@ void main() {
         firebaseAuthProvider.overrideWithValue(mockAuth),
         // Mock the like status check to avoid actual Firebase calls
         checkPostLikedProvider(postId: 'test-post-id').overrideWith(
-          (ref) => Stream.value(false).first,
+          (ref) => Stream.value(false),
+        ),
+        // Mock the post stream
+        postStreamProvider('test-post-id').overrideWith(
+          (ref) => Stream.value(null),
         ),
       ],
       child: MaterialApp(
