@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/university_data.dart';
 import '../../../../core/providers/firebase_providers.dart';
 import 'profile_controller.dart';
 
@@ -18,9 +19,10 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _facultyController = TextEditingController();
-  final _deptController = TextEditingController();
   final _bioController = TextEditingController();
+
+  String? _selectedFaculty;
+  String? _selectedDepartment;
 
   @override
   void initState() {
@@ -41,17 +43,23 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (doc.exists) {
       final data = doc.data()!;
       _nameController.text = data['displayName'] as String? ?? user.displayName ?? '';
-      _facultyController.text = data['faculty'] as String? ?? '';
-      _deptController.text = data['department'] as String? ?? '';
+      final savedFaculty = data['faculty'] as String? ?? '';
+      final savedDept = data['department'] as String? ?? '';
       _bioController.text = data['bio'] as String? ?? '';
+      setState(() {
+        _selectedFaculty = RunUniversityData.faculties.contains(savedFaculty)
+            ? savedFaculty
+            : null;
+        _selectedDepartment = RunUniversityData.departments.contains(savedDept)
+            ? savedDept
+            : null;
+      });
     }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _facultyController.dispose();
-    _deptController.dispose();
     _bioController.dispose();
     super.dispose();
   }
@@ -61,8 +69,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     await ref.read(profileControllerProvider.notifier).updateProfile(
           name: _nameController.text.trim(),
-          faculty: _facultyController.text.trim(),
-          department: _deptController.text.trim(),
+          faculty: _selectedFaculty ?? '',
+          department: _selectedDepartment ?? '',
           bio: _bioController.text.trim(),
         );
 
@@ -106,12 +114,24 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _facultyController,
+              DropdownButtonFormField<String>(
+                value: _selectedFaculty,
                 decoration: const InputDecoration(
                   labelText: 'Faculty',
                   prefixIcon: Icon(Icons.account_balance_outlined),
                 ),
+                isExpanded: true,
+                items: RunUniversityData.faculties.map((faculty) {
+                  return DropdownMenuItem(
+                    value: faculty,
+                    child: Text(faculty, overflow: TextOverflow.ellipsis),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedFaculty = value);
+                  }
+                },
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Faculty is required';
@@ -120,12 +140,24 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _deptController,
+              DropdownButtonFormField<String>(
+                value: _selectedDepartment,
                 decoration: const InputDecoration(
                   labelText: 'Department',
                   prefixIcon: Icon(Icons.school_outlined),
                 ),
+                isExpanded: true,
+                items: RunUniversityData.departments.map((dept) {
+                  return DropdownMenuItem(
+                    value: dept,
+                    child: Text(dept, overflow: TextOverflow.ellipsis),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedDepartment = value);
+                  }
+                },
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Department is required';
