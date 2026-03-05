@@ -23,6 +23,17 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   XFile? _selectedImage;
   PostVisibility _visibility = PostVisibility.public;
 
+  /// True when the user can submit — at least text or an image must be present.
+  bool get _canPost =>
+      _controller.text.trim().isNotEmpty || _selectedImage != null;
+
+  @override
+  void initState() {
+    super.initState();
+    // Rebuild whenever the user types so the Post button enables/disables.
+    _controller.addListener(() => setState(() {}));
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -48,6 +59,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     });
   }
 
+  /// Actually submits the post to Firestore.
   Future<void> _submit() async {
     final controller = ref.read(createPostControllerProvider.notifier);
     try {
@@ -70,6 +82,30 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     }
   }
 
+  /// Shows a confirmation dialog, then submits if the user confirms.
+  Future<void> _confirmAndSubmit() async {
+    final feedLabel = _visibility.label; // 'Global', 'Faculty', or 'Department'
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Post'),
+        content: Text(
+            'This will be shared to your $feedLabel feed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await _submit();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(createPostControllerProvider);
@@ -80,7 +116,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
         title: const Text('Create Post'),
         actions: [
           TextButton(
-            onPressed: isLoading ? null : _submit,
+            onPressed: isLoading || !_canPost ? null : _confirmAndSubmit,
             child:
                 isLoading
                     ? const SizedBox(
@@ -88,7 +124,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                    : const Text('Share'),
+                    : const Text('Post'),
           ),
         ],
       ),
