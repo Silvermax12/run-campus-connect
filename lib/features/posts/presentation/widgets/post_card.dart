@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/widgets/full_screen_image_viewer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,15 +8,42 @@ import '../../application/like_service.dart';
 import '../../data/post_repository.dart';
 import '../../domain/post.dart';
 import '../../../../core/providers/firebase_providers.dart';
+import '../../../profile/presentation/user_profile_screen.dart';
 import '../comments/comment_screen.dart';
 
-class PostCard extends ConsumerWidget {
+class PostCard extends ConsumerStatefulWidget {
   const PostCard({super.key, required this.post});
 
   final Post post;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PostCard> createState() => _PostCardState();
+}
+
+class _PostCardState extends ConsumerState<PostCard> {
+  bool _viewCounted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _incrementView();
+  }
+
+  void _incrementView() {
+    if (_viewCounted) return;
+    _viewCounted = true;
+    // Fire-and-forget unique view increment (excludes post author)
+    final uid = ref.read(firebaseAuthProvider).currentUser?.uid;
+    if (uid == null) return;
+    ref.read(postRepositoryProvider).incrementViewCount(
+      widget.post.id,
+      viewerUid: uid,
+      authorUid: widget.post.author.uid,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -26,19 +54,25 @@ class PostCard extends ConsumerWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  backgroundImage:
-                      post.author.photoUrl.isNotEmpty
-                          ? CachedNetworkImageProvider(post.author.photoUrl)
-                          : null,
-                  child:
-                      post.author.photoUrl.isEmpty
-                          ? Text(
-                            post.author.name.isNotEmpty
-                                ? post.author.name.characters.first
-                                : '?',
-                          )
-                          : null,
+                GestureDetector(
+                  onTap: () => context.push(
+                    UserProfileScreen.routePath(widget.post.author.uid),
+                  ),
+                  child: CircleAvatar(
+                    backgroundImage:
+                        widget.post.author.photoUrl.isNotEmpty
+                            ? CachedNetworkImageProvider(
+                                widget.post.author.photoUrl)
+                            : null,
+                    child:
+                        widget.post.author.photoUrl.isEmpty
+                            ? Text(
+                              widget.post.author.name.isNotEmpty
+                                  ? widget.post.author.name.characters.first
+                                  : '?',
+                            )
+                            : null,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -46,13 +80,13 @@ class PostCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        post.author.name,
+                        widget.post.author.name,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
-                        post.author.department,
+                        widget.post.author.department,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.grey[600],
                         ),
@@ -61,7 +95,7 @@ class PostCard extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  _formatTimestamp(post.timestamp),
+                  _formatTimestamp(widget.post.timestamp),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: Colors.grey[600],
                   ),
@@ -69,21 +103,34 @@ class PostCard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Text(post.content, style: theme.textTheme.bodyLarge),
-            if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
+            Text(widget.post.content, style: theme.textTheme.bodyLarge),
+            if (widget.post.imageUrl != null &&
+                widget.post.imageUrl!.isNotEmpty) ...[
               const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: CachedNetworkImage(
-                  imageUrl: post.imageUrl!,
-                  height: 220,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                  errorWidget: (context, url, error) => const Center(
-                    child: Icon(Icons.image_not_supported, color: Colors.grey),
+              GestureDetector(
+                onTap: () => FullScreenImageViewer.open(
+                  context,
+                  imageUrl: widget.post.imageUrl!,
+                  heroTag: 'post-image-${widget.post.id}',
+                ),
+                child: Hero(
+                  tag: 'post-image-${widget.post.id}',
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 350),
+                      child: CachedNetworkImage(
+                        imageUrl: widget.post.imageUrl!,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                        errorWidget: (context, url, error) => const Center(
+                          child: Icon(Icons.image_not_supported, color: Colors.grey),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -91,9 +138,11 @@ class PostCard extends ConsumerWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                _LikeButton(post: post),
+                _LikeButton(post: widget.post),
                 const SizedBox(width: 16),
-                _CommentButton(post: post),
+                _CommentButton(post: widget.post),
+                const SizedBox(width: 16),
+                _ViewCount(post: widget.post),
               ],
             ),
           ],
@@ -117,6 +166,46 @@ class PostCard extends ConsumerWidget {
     return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
   }
 }
+
+// ── View Count ────────────────────────────────────────────────────────────────
+
+class _ViewCount extends ConsumerWidget {
+  const _ViewCount({required this.post});
+
+  final Post post;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch real-time post data for live view count
+    final postAsync = ref.watch(postStreamProvider(post.id));
+    final viewCount = postAsync.valueOrNull?.viewCount ?? post.viewCount;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          Icon(Icons.visibility_outlined, size: 18, color: Colors.grey[600]),
+          const SizedBox(width: 4),
+          Text(
+            _formatCount(viewCount),
+            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M views';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}k views';
+    }
+    return '$count views';
+  }
+}
+
+// ── Like Button ───────────────────────────────────────────────────────────────
 
 class _LikeButton extends ConsumerStatefulWidget {
   const _LikeButton({required this.post});
@@ -147,17 +236,21 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
     });
 
     ref.listen(postStreamProvider(widget.post.id), (_, next) {
-      if (next.hasValue && next.value != null && _likeCount != next.value!.likeCount) {
+      if (next.hasValue &&
+          next.value != null &&
+          _likeCount != next.value!.likeCount) {
         setState(() => _likeCount = next.value!.likeCount);
       }
     });
 
     // We also eagerly watch the providers so the widget rebuilds when data changes.
-    final isLikedAsync = ref.watch(checkPostLikedProvider(postId: widget.post.id));
+    final isLikedAsync =
+        ref.watch(checkPostLikedProvider(postId: widget.post.id));
     final postAsync = ref.watch(postStreamProvider(widget.post.id));
 
     final isLiked = _isLiked ?? isLikedAsync.value ?? false;
-    final likeCount = _likeCount ?? postAsync.value?.likeCount ?? widget.post.likeCount;
+    final likeCount =
+        _likeCount ?? postAsync.value?.likeCount ?? widget.post.likeCount;
 
     return InkWell(
       onTap: () => _toggleLike(isLiked),
@@ -213,6 +306,8 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
     }
   }
 }
+
+// ── Comment Button ────────────────────────────────────────────────────────────
 
 class _CommentButton extends StatelessWidget {
   const _CommentButton({required this.post});
