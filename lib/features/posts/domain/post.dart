@@ -37,6 +37,7 @@ class Post {
     required this.timestamp,
     required this.likeCount,
     required this.commentCount,
+    required this.viewCount,
     required this.author,
     required this.snapshot,
     required this.visibility,
@@ -50,6 +51,7 @@ class Post {
   final DateTime timestamp;
   final int likeCount;
   final int commentCount;
+  final int viewCount;
   final PostAuthorSnapshot author;
   final DocumentSnapshot<Map<String, dynamic>> snapshot;
   final PostVisibility visibility;
@@ -65,6 +67,7 @@ class Post {
       timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       likeCount: (data['likeCount'] as num?)?.toInt() ?? 0,
       commentCount: (data['commentCount'] as num?)?.toInt() ?? 0,
+      viewCount: (data['viewCount'] as num?)?.toInt() ?? 0,
       author: PostAuthorSnapshot.fromMap(
         (data['authorSnapshot'] as Map<String, dynamic>? ?? {}),
       ),
@@ -75,4 +78,3 @@ class Post {
     );
   }
 }
-
