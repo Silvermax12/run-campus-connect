@@ -23,6 +23,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   String? _selectedFaculty;
   String? _selectedDepartment;
+  int? _birthDay;
+  int? _birthMonth;
 
   @override
   void initState() {
@@ -53,6 +55,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         _selectedDepartment = RunUniversityData.departments.contains(savedDept)
             ? savedDept
             : null;
+        _birthDay = (data['birthDay'] as num?)?.toInt();
+        _birthMonth = (data['birthMonth'] as num?)?.toInt();
       });
     }
   }
@@ -64,6 +68,112 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     super.dispose();
   }
 
+  Future<void> _pickDateOfBirth() async {
+    int tempMonth = _birthMonth ?? 1;
+    int tempDay = _birthDay ?? 1;
+
+    final result = await showModalBottomSheet<Map<String, int>>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            const months = [
+              'January', 'February', 'March', 'April', 'May', 'June',
+              'July', 'August', 'September', 'October', 'November', 'December',
+            ];
+            final daysInMonth = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+            final maxDay = daysInMonth[tempMonth];
+            if (tempDay > maxDay) {
+              tempDay = maxDay;
+            }
+
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Select Date of Birth',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: DropdownButtonFormField<int>(
+                          value: tempMonth,
+                          decoration: const InputDecoration(
+                            labelText: 'Month',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: List.generate(12, (i) => DropdownMenuItem(
+                            value: i + 1,
+                            child: Text(months[i]),
+                          )),
+                          onChanged: (v) {
+                            if (v != null) setSheetState(() => tempMonth = v);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        flex: 2,
+                        child: DropdownButtonFormField<int>(
+                          value: tempDay,
+                          decoration: const InputDecoration(
+                            labelText: 'Day',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: List.generate(maxDay, (i) => DropdownMenuItem(
+                            value: i + 1,
+                            child: Text('${i + 1}'),
+                          )),
+                          onChanged: (v) {
+                            if (v != null) setSheetState(() => tempDay = v);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(ctx, {'month': tempMonth, 'day': tempDay}),
+                    child: const Text('Confirm'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (result != null) {
+      setState(() {
+        _birthMonth = result['month'];
+        _birthDay = result['day'];
+      });
+    }
+  }
+
+  String get _formattedBirthday {
+    if (_birthDay == null || _birthMonth == null) return 'Not set';
+    const months = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[_birthMonth!]} $_birthDay';
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -72,6 +182,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           faculty: _selectedFaculty ?? '',
           department: _selectedDepartment ?? '',
           bio: _bioController.text.trim(),
+          birthDay: _birthDay,
+          birthMonth: _birthMonth,
         );
 
     if (mounted) {
@@ -166,6 +278,22 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 },
               ),
               const SizedBox(height: 16),
+
+              // Date of Birth
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: Colors.grey.shade300),
+                ),
+                leading: const Icon(Icons.cake_outlined),
+                title: const Text('Date of Birth'),
+                subtitle: Text(_formattedBirthday),
+                trailing: const Icon(Icons.calendar_today_outlined, size: 20),
+                onTap: _pickDateOfBirth,
+              ),
+              const SizedBox(height: 16),
+
               TextFormField(
                 controller: _bioController,
                 decoration: const InputDecoration(
