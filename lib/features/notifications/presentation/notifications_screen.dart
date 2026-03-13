@@ -1,66 +1,113 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/firebase_providers.dart';
-import '../../profile/data/friend_repository.dart';
-import '../../profile/presentation/user_profile_screen.dart';
+import '../../profile/data/profile_repository.dart';
 import '../data/notifications_provider.dart';
 import '../domain/notification.dart' as domain;
 
-class NotificationsScreen extends ConsumerWidget {
+class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   static const routeName = 'notifications';
   static const routePath = '/notifications';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final myUid = ref.watch(firebaseAuthProvider).currentUser?.uid;
-    
+
     if (myUid == null) {
       return const Scaffold(
         body: Center(child: Text('Please sign in to view notifications')),
       );
     }
 
-    final notificationsStream = ref.watch(notificationsProvider(myUid));
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Global'),
+            Tab(text: 'Faculty'),
+            Tab(text: 'Department'),
+          ],
+        ),
       ),
-      body: notificationsStream.when(
-        data: (notifications) {
-          if (notifications.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.notifications_none, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'No notifications yet',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                ],
-              ),
-            );
-          }
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _NotificationTab(uid: myUid, category: 'global'),
+          _NotificationTab(uid: myUid, category: 'faculty'),
+          _NotificationTab(uid: myUid, category: 'department'),
+        ],
+      ),
+    );
+  }
+}
 
-          return ListView.separated(
-            itemCount: notifications.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final notification = notifications[index];
-              return _NotificationTile(notification: notification);
-            },
+class _NotificationTab extends ConsumerWidget {
+  const _NotificationTab({required this.uid, required this.category});
+
+  final String uid;
+  final String category;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notificationsAsync = ref.watch(
+      filteredNotificationsProvider((uid: uid, category: category)),
+    );
+
+    return notificationsAsync.when(
+      data: (notifications) {
+        if (notifications.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.notifications_none, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'No notifications yet',
+                  style: TextStyle(fontSize: 16, color: Colors.grey[500]),
+                ),
+              ],
+            ),
           );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Error: $err')),
-      ),
+        }
+        return ListView.separated(
+          itemCount: notifications.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final notification = notifications[index];
+            return _NotificationTile(notification: notification);
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => Center(child: Text('Error: $err')),
     );
   }
 }
@@ -73,16 +120,17 @@ class _NotificationTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    
+
     return ListTile(
-      tileColor: notification.isRead ? null : theme.primaryColor.withOpacity(0.1),
+      tileColor:
+          notification.isRead ? null : theme.primaryColor.withValues(alpha: 0.1),
       leading: CircleAvatar(
         backgroundImage: notification.senderPic.isNotEmpty
             ? CachedNetworkImageProvider(notification.senderPic)
             : null,
         child: notification.senderPic.isEmpty
-            ? Text(notification.senderName.isNotEmpty 
-                ? notification.senderName.characters.first 
+            ? Text(notification.senderName.isNotEmpty
+                ? notification.senderName.characters.first
                 : '?')
             : null,
       ),
@@ -105,12 +153,9 @@ class _NotificationTile extends ConsumerWidget {
       onTap: () {
         // Mark as read
         if (!notification.isRead) {
-          ref.read(friendRepositoryProvider).markNotificationAsRead(notification.id);
-        }
-        
-        // Navigate based on type
-        if (notification.type == 'friend_request' && notification.referenceId != null) {
-          context.push(UserProfileScreen.routePath(notification.referenceId!));
+          ref
+              .read(profileRepositoryProvider)
+              .markNotificationAsRead(notification.id);
         }
       },
     );
