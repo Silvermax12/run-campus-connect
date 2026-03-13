@@ -37,6 +37,8 @@ class ProfileController extends _$ProfileController {
     required String faculty,
     required String department,
     required String bio,
+    int? birthDay,
+    int? birthMonth,
   }) async {
     final user = ref.read(firebaseAuthProvider).currentUser;
     if (user == null) return;
@@ -54,12 +56,9 @@ class ProfileController extends _$ProfileController {
         'faculty': faculty,
         'department': department,
         'bio': bio,
+        'birthDay': birthDay,
+        'birthMonth': birthMonth,
       });
-
-      // Note: We are NOT updating all past posts here. 
-      // In a real app, we might use a Cloud Function for that.
-      // For this project, we accept that old posts might show old data 
-      // until the next write, or we rely on the user doc for the profile view.
     });
   }
 }
