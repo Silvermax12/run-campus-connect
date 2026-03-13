@@ -1,0 +1,50 @@
+name: Scrape RUN News
+
+on:
+  schedule:
+    # Runs every hour at minute 0
+    - cron: "0 * * * *"
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r python_backend/scripts/requirements-scraper.txt
+          playwright install --with-deps chromium
+
+      - name: Write Firebase service account key
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > python_backend/serviceAccountKey.json
+
+      - name: Run news scraper
+        run: python python_backend/scripts/run_news_scraper.py
+
+      - name: Commit and push cache if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add python_backend/scripts/scrape_cache.json
+          if git diff --cached --quiet; then
+            echo "No cache changes to commit."
+          else
+            git commit -m "chore: update scrape_cache.json [skip ci]"
+            git push
+          fi
