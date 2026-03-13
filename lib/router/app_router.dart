@@ -12,6 +12,11 @@ import '../features/auth/presentation/verify/verify_email_screen.dart';
 import '../features/chat/presentation/chat_screen.dart';
 import '../features/chat/presentation/inbox_screen.dart';
 import '../features/explore/presentation/explore_screen.dart';
+import '../features/explore/presentation/governance_screen.dart';
+import '../features/explore/presentation/history_screen.dart';
+import '../features/explore/presentation/motto_logo_anthem_screen.dart';
+import '../features/explore/presentation/news_detail_screen.dart';
+import '../features/explore/presentation/vision_mission_screen.dart';
 import '../features/home/presentation/home_screen.dart';
 import '../features/notifications/presentation/notifications_screen.dart';
 import '../features/posts/presentation/comments/comment_screen.dart';
@@ -20,6 +25,7 @@ import '../features/profile/presentation/create_profile_screen.dart';
 import '../features/profile/presentation/edit_profile_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/profile/presentation/user_profile_screen.dart';
+import '../features/profile/presentation/about_run_screen.dart';
 import 'widgets/app_shell.dart';
 
 part 'app_router.g.dart';
@@ -231,6 +237,39 @@ GoRouter appRouter(Ref ref) {
           final userName = state.extra as String?;
           return ChatScreen(targetUserId: userId, targetUserName: userName);
         },
+      ),
+      GoRoute(
+        path: AboutRunScreen.routePath,
+        name: AboutRunScreen.routeName,
+        builder: (context, state) => const AboutRunScreen(),
+      ),
+      GoRoute(
+        path: NewsDetailScreen.routePath,
+        name: NewsDetailScreen.routeName,
+        builder: (context, state) {
+          final newsItem = state.extra as Map<String, dynamic>;
+          return NewsDetailScreen(newsItem: newsItem);
+        },
+      ),
+      GoRoute(
+        path: HistoryScreen.routePath,
+        name: HistoryScreen.routeName,
+        builder: (context, state) => const HistoryScreen(),
+      ),
+      GoRoute(
+        path: GovernanceScreen.routePath,
+        name: GovernanceScreen.routeName,
+        builder: (context, state) => const GovernanceScreen(),
+      ),
+      GoRoute(
+        path: MottoLogoAnthemScreen.routePath,
+        name: MottoLogoAnthemScreen.routeName,
+        builder: (context, state) => const MottoLogoAnthemScreen(),
+      ),
+      GoRoute(
+        path: VisionMissionScreen.routePath,
+        name: VisionMissionScreen.routeName,
+        builder: (context, state) => const VisionMissionScreen(),
       ),
     ],
   );
