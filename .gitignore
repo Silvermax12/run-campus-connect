@@ -53,3 +53,5 @@ key.properties
 python_backend/venv/
 python_backend/.env
 python_backend/serviceAccountKey.json
+android/app/google-services.json
+lib/firebase_options.dart
