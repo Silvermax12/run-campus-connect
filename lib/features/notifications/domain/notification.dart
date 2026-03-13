@@ -10,7 +10,8 @@ class Notification {
   final String message;
   final DateTime timestamp;
   final bool isRead;
-  final String? referenceId; // Optional: for navigation (e.g., userId)
+  final String? referenceId;
+  final String category; // 'global', 'faculty', or 'department'
 
   Notification({
     required this.id,
@@ -23,6 +24,7 @@ class Notification {
     required this.timestamp,
     required this.isRead,
     this.referenceId,
+    this.category = 'global',
   });
 
   factory Notification.fromSnapshot(DocumentSnapshot doc) {
@@ -38,6 +40,7 @@ class Notification {
       timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isRead: data['isRead'] as bool? ?? false,
       referenceId: data['referenceId'] as String?,
+      category: data['category'] as String? ?? 'global',
     );
   }
 
@@ -51,6 +54,7 @@ class Notification {
       'message': message,
       'timestamp': Timestamp.fromDate(timestamp),
       'isRead': isRead,
+      'category': category,
       if (referenceId != null) 'referenceId': referenceId,
     };
   }
