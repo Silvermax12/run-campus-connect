@@ -1,10 +1,17 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/widgets/full_screen_image_viewer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../profile/presentation/user_profile_screen.dart';
-import 'explore_controller.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../profile/presentation/about_run_screen.dart';
+import '../data/run_news_provider.dart';
+import 'governance_screen.dart';
+import 'history_screen.dart';
+import 'motto_logo_anthem_screen.dart';
+import 'news_detail_screen.dart';
+import 'vision_mission_screen.dart';
 
 class ExploreScreen extends ConsumerStatefulWidget {
   const ExploreScreen({super.key});
@@ -17,103 +24,320 @@ class ExploreScreen extends ConsumerStatefulWidget {
 }
 
 class _ExploreScreenState extends ConsumerState<ExploreScreen> {
-  final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _onSearchChanged(String query) {
-    // Debounce could be added here for better performance
-    ref.read(exploreControllerProvider.notifier).searchUsers(query);
+  void _scrollToTop() {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final searchResultsAsync = ref.watch(exploreControllerProvider);
+    final newsAsync = ref.watch(runNewsProvider);
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Explore'),
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+          ),
+        ),
+      ),
+      drawer: _buildDrawer(context),
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: TextField(
-                controller: _searchController,
-                onChanged: _onSearchChanged,
-                decoration: InputDecoration(
-                  hintText: 'Find Students...',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade100,
+        child: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            // ── Campus News Header ──────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.newspaper, color: AppTheme.runBlue),
+                    const SizedBox(width: 8),
+                    Text(
+                      'RUN News',
+                      style:
+                          Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.runBlue,
+                              ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            Expanded(
-              child: searchResultsAsync.when(
-                data: (users) {
-                  if (users.isEmpty) {
-                    if (_searchController.text.isNotEmpty) {
-                      return const Center(child: Text('No students found.'));
-                    }
-                    return const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.people_outline,
-                              size: 64, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text(
-                            'Search for students by name',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
 
-                  return ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: users.length,
-                    separatorBuilder: (_, __) => const Divider(),
-                    itemBuilder: (context, index) {
-                      final user = users[index];
-                      final uid = user['uid'] as String? ?? '';
-                      final name = user['displayName'] as String? ?? 'Unknown';
-                      final dept = user['department'] as String? ?? '';
-                      final photoUrl = user['photoUrl'] as String? ?? '';
-
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundImage: photoUrl.isNotEmpty
-                              ? CachedNetworkImageProvider(photoUrl)
-                              : null,
-                          child: photoUrl.isEmpty
-                              ? Text(name.isNotEmpty ? name.characters.first : '?')
-                              : null,
+            // ── News Cards ──────────────────────────────────────────────
+            newsAsync.when(
+              data: (newsList) {
+                if (newsList.isEmpty) {
+                  return const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.article_outlined,
+                                size: 48, color: Colors.grey),
+                            SizedBox(height: 8),
+                            Text('No news yet',
+                                style: TextStyle(color: Colors.grey)),
+                          ],
                         ),
-                        title: Text(name),
-                        subtitle: Text(dept),
-                        onTap: () {
-                          if (uid.isNotEmpty) {
-                            context.push(UserProfileScreen.routePath(uid));
-                          }
-                        },
-                      );
-                    },
+                      ),
+                    ),
                   );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => Center(child: Text('Error: $err')),
+                }
+
+                return SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final item = newsList[index];
+                        return _NewsCard(newsItem: item);
+                      },
+                      childCount: newsList.length,
+                    ),
+                  ),
+                );
+              },
+              loading: () => const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+              error: (err, _) => SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Center(child: Text('Error loading news: $err')),
+                ),
               ),
             ),
+
+            // Bottom spacing
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         ),
+      ),
+    );
+  }
+
+  // ── Drawer ──────────────────────────────────────────────────────────────
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: const BoxDecoration(color: AppTheme.runBlue),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ClipOval(
+                  child: Image.asset(
+                    'assets/images/run_logo.jpg',
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  "Redeemer's University",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Text(
+                  'Campus Connect',
+                  style: TextStyle(
+                    color: AppTheme.runGold,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          _drawerItem(
+            context,
+            icon: Icons.newspaper,
+            label: 'News',
+            onTap: () {
+              Navigator.pop(context);
+              _scrollToTop();
+            },
+          ),
+          _drawerItem(
+            context,
+            icon: Icons.history_edu,
+            label: 'History',
+            onTap: () {
+              Navigator.pop(context);
+              context.push(HistoryScreen.routePath);
+            },
+          ),
+          _drawerItem(
+            context,
+            icon: Icons.account_balance,
+            label: 'Governance',
+            onTap: () {
+              Navigator.pop(context);
+              context.push(GovernanceScreen.routePath);
+            },
+          ),
+          _drawerItem(
+            context,
+            icon: Icons.emoji_events,
+            label: 'Motto, Logo & Anthem',
+            onTap: () {
+              Navigator.pop(context);
+              context.push(MottoLogoAnthemScreen.routePath);
+            },
+          ),
+          _drawerItem(
+            context,
+            icon: Icons.lightbulb,
+            label: 'Vision, Mission & Strategy',
+            onTap: () {
+              Navigator.pop(context);
+              context.push(VisionMissionScreen.routePath);
+            },
+          ),
+          const Divider(),
+          _drawerItem(
+            context,
+            icon: Icons.phone_in_talk,
+            label: 'Contact',
+            onTap: () {
+              Navigator.pop(context);
+              context.push(AboutRunScreen.routePath);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _drawerItem(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: AppTheme.runBlue),
+      title: Text(
+        label,
+        style: const TextStyle(
+          fontWeight: FontWeight.w500,
+          color: AppTheme.runBlue,
+        ),
+      ),
+      selectedTileColor: AppTheme.runGold.withOpacity(0.15),
+      selectedColor: AppTheme.runGold,
+      onTap: onTap,
+    );
+  }
+}
+
+// ── News Card Widget ──────────────────────────────────────────────────────────
+class _NewsCard extends StatelessWidget {
+  const _NewsCard({required this.newsItem});
+
+  final Map<String, dynamic> newsItem;
+
+  @override
+  Widget build(BuildContext context) {
+    final heading = newsItem['heading'] as String? ?? '';
+    final imageUrl = newsItem['imageUrl'] as String? ?? '';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Top Image ────────────────────────────────────────────────
+          if (imageUrl.isNotEmpty)
+            GestureDetector(
+              onTap: () => FullScreenImageViewer.open(
+                context,
+                imageUrl: imageUrl,
+                heroTag: 'news-image-${newsItem['id'] ?? imageUrl}',
+              ),
+              child: Hero(
+                tag: 'news-image-${newsItem['id'] ?? imageUrl}',
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(
+                      height: 180,
+                      color: Colors.grey.shade200,
+                      child: const Center(child: CircularProgressIndicator()),
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      height: 180,
+                      color: Colors.grey.shade200,
+                      child: const Icon(Icons.broken_image, size: 40),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Text(
+              heading,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+
+          // ── Read More Button ─────────────────────────────────────────
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => NewsDetailScreen(newsItem: newsItem),
+                  ),
+                );
+              },
+              child: const Text(
+                'Read More',
+                style: TextStyle(color: AppTheme.runBlue),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
