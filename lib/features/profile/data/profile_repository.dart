@@ -27,6 +27,24 @@ class ProfileRepository {
     if (!snapshot.exists) return null;
     return UserProfile.fromMap(snapshot.id, snapshot.data() ?? {});
   }
+
+  /// Returns users whose birthday matches the given day and month.
+  Stream<List<UserProfile>> watchTodayBirthdays(int day, int month) {
+    return _usersRef
+        .where('birthDay', isEqualTo: day)
+        .where('birthMonth', isEqualTo: month)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => UserProfile.fromMap(doc.id, doc.data()))
+            .toList());
+  }
+
+  /// Marks a notification as read.
+  Future<void> markNotificationAsRead(String notificationId) async {
+    await _firestore.collection('notifications').doc(notificationId).update({
+      'isRead': true,
+    });
+  }
 }
 
 @Riverpod(keepAlive: true)
