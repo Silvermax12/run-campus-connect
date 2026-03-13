@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../domain/post_visibility.dart';
 import 'create_post_controller.dart';
 
@@ -114,107 +115,137 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Post'),
-        actions: [
-          TextButton(
-            onPressed: isLoading || !_canPost ? null : _confirmAndSubmit,
-            child:
-                isLoading
-                    ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Text('Post'),
-          ),
-        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      body: SafeArea(
         child: Column(
           children: [
             Expanded(
-              child: TextField(
-                controller: _controller,
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                decoration: const InputDecoration(
-                  hintText: "What's happening on campus?",
-                  border: InputBorder.none,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        maxLines: null,
+                        expands: true,
+                        textAlignVertical: TextAlignVertical.top,
+                        decoration: const InputDecoration(
+                          hintText: "What's happening on campus?",
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                    if (_selectedImage != null) ...[
+                      const SizedBox(height: 12),
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.file(
+                              File(_selectedImage!.path),
+                              height: 220,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: IconButton(
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.black54,
+                              ),
+                              icon: const Icon(Icons.close, color: Colors.white),
+                              onPressed: isLoading ? null : _removeImage,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+
+                    // ── Visibility selector ────────────────────────────────
+                    Row(
+                      children: [
+                        const Icon(Icons.visibility_outlined, size: 20),
+                        const SizedBox(width: 8),
+                        const Text('Post to:'),
+                        const SizedBox(width: 8),
+                        DropdownButton<PostVisibility>(
+                          value: _visibility,
+                          underline: const SizedBox.shrink(),
+                          borderRadius: BorderRadius.circular(12),
+                          items: PostVisibility.values.map((v) {
+                            return DropdownMenuItem(
+                              value: v,
+                              child: Text(v.label),
+                            );
+                          }).toList(),
+                          onChanged: isLoading
+                              ? null
+                              : (value) {
+                                  if (value != null) {
+                                    setState(() => _visibility = value);
+                                  }
+                                },
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: isLoading ? null : _pickImage,
+                          icon: const Icon(Icons.image_outlined),
+                          label: const Text('Add image'),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${_controller.text.trim().length}/500',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
-            if (_selectedImage != null) ...[
-              const SizedBox(height: 12),
-              Stack(
+
+            // ── Post button pinned to bottom-right ───────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.file(
-                      File(_selectedImage!.path),
-                      height: 220,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: IconButton(
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.black54,
+                  FilledButton.icon(
+                    onPressed:
+                        isLoading || !_canPost ? null : _confirmAndSubmit,
+                    icon: isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.send),
+                    label: const Text('Post'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.runBlue,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey.shade300,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
                       ),
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: isLoading ? null : _removeImage,
                     ),
                   ),
                 ],
               ),
-            ],
-            const SizedBox(height: 12),
-
-            // ── Visibility selector ──────────────────────────────────────
-            Row(
-              children: [
-                const Icon(Icons.visibility_outlined, size: 20),
-                const SizedBox(width: 8),
-                const Text('Post to:'),
-                const SizedBox(width: 8),
-                DropdownButton<PostVisibility>(
-                  value: _visibility,
-                  underline: const SizedBox.shrink(),
-                  borderRadius: BorderRadius.circular(12),
-                  items: PostVisibility.values.map((v) {
-                    return DropdownMenuItem(
-                      value: v,
-                      child: Text(v.label),
-                    );
-                  }).toList(),
-                  onChanged: isLoading
-                      ? null
-                      : (value) {
-                          if (value != null) {
-                            setState(() => _visibility = value);
-                          }
-                        },
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: isLoading ? null : _pickImage,
-                  icon: const Icon(Icons.image_outlined),
-                  label: const Text('Add image'),
-                ),
-                const Spacer(),
-                Text(
-                  '${_controller.text.trim().length}/500',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
             ),
           ],
         ),
