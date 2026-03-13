@@ -60,7 +60,26 @@ service cloud.firestore {
       }
     }
 
-    // --- 4. NOTIFICATIONS COLLECTION ---
+    // --- 4. RUN NEWS COLLECTION ---
+    match /run_news/{newsId} {
+      allow read: if isSignedIn();
+    }
+
+    // --- 5. INSTITUTIONAL COLLECTIONS ---
+    match /run_our_history/{docId} {
+      allow read: if isSignedIn();
+    }
+    match /run_governance/{docId} {
+      allow read: if isSignedIn();
+    }
+    match /run_motto_logo_anthem/{docId} {
+      allow read: if isSignedIn();
+    }
+    match /run_vision_mission/{docId} {
+      allow read: if isSignedIn();
+    }
+
+    // --- 5. NOTIFICATIONS COLLECTION ---
     match /notifications/{notificationId} {
       allow read: if isSignedIn() && resource.data.recipientId == request.auth.uid;
       allow create: if isSignedIn();
