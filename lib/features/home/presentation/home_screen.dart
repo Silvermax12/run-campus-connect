@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/firebase_providers.dart';
+import '../../../core/services/birthday_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../notifications/data/unread_badge_provider.dart';
 import '../../posts/presentation/create_post/create_post_screen.dart';
@@ -25,6 +26,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  bool _birthdayMessageSent = false;
 
   @override
   void initState() {
@@ -36,6 +38,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _sendBirthdayMessageIfNeeded() {
+    if (_birthdayMessageSent) return;
+    final isBirthday = ref.read(isTodayUserBirthdayProvider);
+    if (isBirthday) {
+      _birthdayMessageSent = true;
+      final uid = ref.read(firebaseAuthProvider).currentUser?.uid;
+      if (uid != null) {
+        ref.read(birthdayServiceProvider).sendBirthdayMessage(uid);
+      }
+    }
   }
 
   @override
@@ -50,6 +64,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final profile = profileAsync.valueOrNull;
     final userFaculty = profile?.faculty ?? '';
     final userDepartment = profile?.department ?? '';
+
+    // Birthday check
+    final isBirthday = ref.watch(isTodayUserBirthdayProvider);
+
+    // Send birthday message (fire-and-forget, once per session)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sendBirthdayMessageIfNeeded();
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -87,12 +109,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _FeedTab(feedType: FeedType.global, filterValue: ''),
-          _FeedTab(feedType: FeedType.faculty, filterValue: userFaculty),
-          _FeedTab(feedType: FeedType.department, filterValue: userDepartment),
+          // ── Birthday Banner ──────────────────────────────────────────
+          if (isBirthday)
+            MaterialBanner(
+              backgroundColor: AppTheme.runGold.withValues(alpha: 0.15),
+              content: const Text(
+                '🎂 Happy Birthday! Enjoy your special day! 🎉',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              ),
+              leading: const Icon(Icons.cake, color: AppTheme.runGold, size: 28),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    // Dismiss by force-rebuilding without the banner
+                    // In a real app you'd store a dismissed flag
+                  },
+                  child: const Text('🥳'),
+                ),
+              ],
+            ),
+
+          // ── Feed Tabs ───────────────────────────────────────────────
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _FeedTab(feedType: FeedType.global, filterValue: ''),
+                _FeedTab(
+                    feedType: FeedType.faculty, filterValue: userFaculty),
+                _FeedTab(
+                    feedType: FeedType.department,
+                    filterValue: userDepartment),
+              ],
+            ),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
