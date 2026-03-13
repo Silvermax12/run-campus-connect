@@ -1,16 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/firebase_providers.dart';
 import '../../posts/presentation/widgets/post_card.dart';
+import '../../chat/presentation/chat_screen.dart';
 import 'profile_controller.dart';
 import 'profile_screen.dart';
-import 'user_profile_screen_providers.dart';
-import '../../chat/presentation/chat_screen.dart';
-import '../data/friend_repository.dart';
 
 class UserProfileScreen extends ConsumerWidget {
   const UserProfileScreen({super.key, required this.userId});
@@ -47,8 +44,26 @@ class UserProfileScreen extends ConsumerWidget {
           final data = doc.data() as Map<String, dynamic>? ?? {};
           final name = data['displayName'] as String? ?? 'Unknown';
           final dept = data['department'] as String? ?? '';
+          final faculty = data['faculty'] as String? ?? '';
           final bio = data['bio'] as String? ?? '';
           final photoUrl = data['photoUrl'] as String? ?? '';
+          final birthDay = (data['birthDay'] as num?)?.toInt();
+          final birthMonth = (data['birthMonth'] as num?)?.toInt();
+
+          // Format birthday
+          String formattedBirthday = '';
+          if (birthDay != null && birthMonth != null) {
+            const months = [
+              '', 'January', 'February', 'March', 'April', 'May', 'June',
+              'July', 'August', 'September', 'October', 'November', 'December',
+            ];
+            if (birthMonth >= 1 && birthMonth <= 12) {
+              final suffix = _daySuffix(birthDay);
+              formattedBirthday = '${months[birthMonth]} $birthDay$suffix';
+            }
+          }
+
+          final myUid = ref.watch(firebaseAuthProvider).currentUser?.uid;
 
           return CustomScrollView(
             slivers: [
@@ -78,6 +93,15 @@ class UserProfileScreen extends ConsumerWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (faculty.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          faculty,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ],
                       if (dept.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Text(
@@ -95,14 +119,39 @@ class UserProfileScreen extends ConsumerWidget {
                           style: theme.textTheme.bodyMedium,
                         ),
                       ],
+                      if (formattedBirthday.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.cake_outlined, size: 18,
+                                color: Colors.grey),
+                            const SizedBox(width: 6),
+                            Text(
+                              formattedBirthday,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      // Show Message button only for other users
+                      if (myUid != null && myUid != userId)
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            context.push(ChatScreen.routePath(userId));
+                          },
+                          icon: const Icon(Icons.message_outlined),
+                          label: const Text('Message'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
                     ],
                   ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: _FriendActionButtons(userId: userId),
                 ),
               ),
               SliverPadding(
@@ -126,6 +175,20 @@ class UserProfileScreen extends ConsumerWidget {
         error: (err, _) => Center(child: Text('Error: $err')),
       ),
     );
+  }
+
+  static String _daySuffix(int day) {
+    if (day >= 11 && day <= 13) return 'th';
+    switch (day % 10) {
+      case 1:
+        return 'st';
+      case 2:
+        return 'nd';
+      case 3:
+        return 'rd';
+      default:
+        return 'th';
+    }
   }
 }
 
@@ -169,135 +232,6 @@ class _UserPostsList extends ConsumerWidget {
           child: Text('Error loading posts: $err'),
         ),
       ),
-    );
-  }
-}
-
-class _FriendActionButtons extends ConsumerWidget {
-  const _FriendActionButtons({required this.userId});
-
-  final String userId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final myUid = ref.watch(firebaseAuthProvider).currentUser?.uid;
-    if (myUid == null || myUid == userId) return const SizedBox.shrink();
-
-    final friendStatusAsync = ref.watch(
-      friendStatusStreamProvider(myUid: myUid, targetUid: userId),
-    );
-
-    // Get current user's profile for notification
-    final myProfileAsync = ref.watch(
-      streamProvider(FirebaseFirestore.instance.collection('users').doc(myUid)),
-    );
-
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton(
-            onPressed: () {
-              context.push(ChatScreen.routePath(userId));
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Message'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: friendStatusAsync.when(
-            data: (status) {
-              switch (status) {
-                case FriendStatus.none:
-                  return myProfileAsync.when(
-                    data: (myDoc) {
-                      final myData = myDoc.data() as Map<String, dynamic>? ?? {};
-                      final myName = myData['displayName'] as String? ?? 'User';
-                      final myPhoto = myData['photoUrl'] as String? ?? '';
-                      
-                      return OutlinedButton(
-                        onPressed: () {
-                          ref.read(friendRepositoryProvider).sendFriendRequest(
-                                myUid: myUid,
-                                targetUid: userId,
-                                myName: myName,
-                                myPhotoUrl: myPhoto,
-                              );
-                        },
-                        child: const Text('Add Friend'),
-                      );
-                    },
-                    loading: () => const OutlinedButton(onPressed: null, child: Text('Add Friend')),
-                    error: (_, __) => const SizedBox.shrink(),
-                  );
-                case FriendStatus.pending_outgoing:
-                  return OutlinedButton(
-                    onPressed: () {
-                      ref.read(friendRepositoryProvider).cancelFriendRequest(
-                            myUid: myUid,
-                            targetUid: userId,
-                          );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey,
-                    ),
-                    child: const Text('Request Sent'),
-                  );
-                case FriendStatus.pending_incoming:
-                  return ElevatedButton(
-                    onPressed: () {
-                      ref.read(friendRepositoryProvider).acceptFriendRequest(
-                            myUid: myUid,
-                            targetUid: userId,
-                          );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Accept Request'),
-                  );
-                case FriendStatus.accepted:
-                  return OutlinedButton.icon(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Unfriend'),
-                          content: const Text(
-                              'Are you sure you want to remove this friend?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                ref.read(friendRepositoryProvider).unfriend(
-                                      myUid: myUid,
-                                      targetUid: userId,
-                                    );
-                                Navigator.pop(context);
-                              },
-                              child: const Text('Unfriend'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.check, size: 16),
-                    label: const Text('Friends'),
-                  );
-              }
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
-        ),
-      ],
     );
   }
 }
