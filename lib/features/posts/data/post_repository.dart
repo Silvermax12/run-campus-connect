@@ -170,6 +170,31 @@ class PostRepository {
 
     await docRef.set(payload);
   }
+
+  // ---------------------------------------------------------------------------
+  // View Count
+  // ---------------------------------------------------------------------------
+
+  /// Records a view for the given user. Each user can only count once.
+  /// The post creator is excluded from view counting.
+  /// Uses a transaction to prevent race conditions on refresh.
+  Future<void> incrementViewCount(String postId, {required String viewerUid, required String authorUid}) async {
+    // Don't count the creator as a viewer
+    if (viewerUid == authorUid) return;
+
+    final viewDocRef = _postsRef.doc(postId).collection('views').doc(viewerUid);
+    final postDocRef = _postsRef.doc(postId);
+
+    await _firestore.runTransaction((transaction) async {
+      final viewSnapshot = await transaction.get(viewDocRef);
+      if (viewSnapshot.exists) return; // Already viewed — do nothing
+
+      transaction.set(viewDocRef, {'viewedAt': FieldValue.serverTimestamp()});
+      transaction.update(postDocRef, {
+        'viewCount': FieldValue.increment(1),
+      });
+    });
+  }
 }
 
 @Riverpod(keepAlive: true)
