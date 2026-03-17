@@ -90,158 +90,76 @@ def init_firestore():
     return firestore.client()
 
 
-def _as_lines(text: str) -> list[str]:
-    return [ln.strip() for ln in (text or "").split("\n") if ln.strip()]
+def _with_common_fields(raw: dict[str, Any], url: str) -> dict[str, Any]:
+    """
+    Take the raw scraper JSON and add common metadata, without changing
+    the existing field structure from the individual scraper modules.
+
+    This is the shape that will be stored in Firestore.
+    """
+    data = dict(raw)  # shallow copy so we don't mutate the original
+    data.setdefault("url", url)
+    data["scrapedAt"] = datetime.now(timezone.utc)
+    # Drop any top-level error key if present
+    data.pop("error", None)
+    return data
 
 
 def normalize_governance(raw: dict[str, Any]) -> dict[str, Any]:
-    officers = raw.get("officers") or []
-    senate = raw.get("senate") or []
-
-    team_members = []
-    if isinstance(officers, list):
-        for o in officers:
-            if not isinstance(o, dict):
-                continue
-            team_members.append(
-                {
-                    "name": o.get("name", ""),
-                    "role": o.get("role", ""),
-                    "imageUrl": o.get("image_url", "") if o.get("image_url") != "No Image" else "",
-                    "bio": "",
-                }
-            )
-
-    senate_members = []
-    if isinstance(senate, list):
-        for s in senate:
-            if not isinstance(s, dict):
-                continue
-            senate_members.append(
-                {
-                    "name": s.get("name", ""),
-                    "position": s.get("designation", ""),
-                }
-            )
-
-    return {
-        "url": URL_GOV,
-        "teamMembers": team_members,
-        "boardOfTrustees": [],
-        "governingCouncil": [],
-        "senateMembers": senate_members,
-        "scrapedAt": datetime.now(timezone.utc),
-    }
+    """
+    Governance document structure follows gov.py output:
+      {
+        \"officers\": [...],
+        \"senate\": [...],
+        ...
+      }
+    We simply add common metadata fields like url and scrapedAt.
+    """
+    return _with_common_fields(raw, URL_GOV)
 
 
 def normalize_history(raw: dict[str, Any]) -> dict[str, Any]:
-    blocks = raw.get("blocks") or []
-    paragraphs: list[str] = []
-    image_urls: list[str] = []
-
-    if isinstance(blocks, list):
-        for b in blocks:
-            if not isinstance(b, dict):
-                continue
-            if b.get("type") == "text":
-                content = b.get("content")
-                if isinstance(content, list):
-                    paragraphs.extend([str(p).strip() for p in content if str(p).strip()])
-            elif b.get("type") == "image":
-                url = b.get("url")
-                if isinstance(url, str) and url.strip():
-                    image_urls.append(url.strip())
-
-    return {
-        "url": URL_HISTORY,
-        "fullHistory": "\n".join(paragraphs),
-        "imageUrls": image_urls,
-        "scrapedAt": datetime.now(timezone.utc),
-    }
+    """
+    History document structure follows history.py output:
+      {
+        \"title\": \"Our History\",
+        \"blocks\": [...],
+        \"last_updated\": ...,
+        ...
+      }
+    We only add url and scrapedAt on top.
+    """
+    return _with_common_fields(raw, URL_HISTORY)
 
 
 def normalize_vision_mission(raw: dict[str, Any]) -> dict[str, Any]:
-    strategy_list = raw.get("vision_strategy") or []
-    if isinstance(strategy_list, list):
-        strategy = "\n".join([str(p).strip() for p in strategy_list if str(p).strip()])
-    else:
-        strategy = str(strategy_list or "").strip()
-
-    return {
-        "url": URL_VMS,
-        "visionStatement": str(raw.get("vision", "") or "").strip(),
-        "missionStatement": str(raw.get("mission", "") or "").strip(),
-        "visionStrategy": strategy,
-        "scrapedAt": datetime.now(timezone.utc),
-    }
+    """
+    Vision & mission document structure follows vis_mis_stra.py output:
+      {
+        \"vision\": ...,
+        \"mission\": ...,
+        \"overview_image\": ...,
+        \"vision_strategy\": [...],
+        ...
+      }
+    We preserve these fields and just add url and scrapedAt.
+    """
+    return _with_common_fields(raw, URL_VMS)
 
 
 def normalize_motto_logo_anthem(raw: dict[str, Any]) -> dict[str, Any]:
-    image_urls: list[str] = []
-
-    logo_section = raw.get("logo_section") or {}
-    if isinstance(logo_section, dict):
-        imgs = logo_section.get("images")
-        if isinstance(imgs, list):
-            image_urls.extend([str(u).strip() for u in imgs if str(u).strip()])
-
-    color_identity = raw.get("color_identity") or {}
-    if isinstance(color_identity, dict):
-        details = color_identity.get("details")
-        if isinstance(details, list):
-            for d in details:
-                if isinstance(d, dict) and d.get("image_url"):
-                    image_urls.append(str(d["image_url"]).strip())
-
-    # Build a readable fullContent string for the Flutter screen.
-    parts: list[str] = []
-    motto_section = raw.get("motto_section") or []
-    if isinstance(motto_section, list):
-        parts.extend([str(p).strip() for p in motto_section if str(p).strip()])
-
-    if isinstance(logo_section, dict):
-        desc = str(logo_section.get("description", "") or "").strip()
-        if desc:
-            parts.append("")
-            parts.append("Logo")
-            parts.append(desc)
-
-    if isinstance(color_identity, dict):
-        main_text = str(color_identity.get("main_text", "") or "").strip()
-        if main_text:
-            parts.append("")
-            parts.append("Colours")
-            parts.append(main_text)
-
-        details = color_identity.get("details") or []
-        if isinstance(details, list) and details:
-            for d in details:
-                if not isinstance(d, dict):
-                    continue
-                desc = str(d.get("description", "") or "").strip()
-                if desc:
-                    parts.append(f"- {desc}")
-
-    anthem = raw.get("anthem") or []
-    if isinstance(anthem, list) and anthem:
-        parts.append("")
-        parts.append("Anthem")
-        parts.extend([str(l).strip() for l in anthem if str(l).strip()])
-
-    # De-dupe image URLs while preserving order
-    seen = set()
-    uniq_images: list[str] = []
-    for u in image_urls:
-        if u and u not in seen:
-            seen.add(u)
-            uniq_images.append(u)
-
-    return {
-        "url": URL_MLA,
-        "fullContent": "\n".join(parts).strip(),
-        "imageUrls": uniq_images,
-        "scrapedAt": datetime.now(timezone.utc),
-    }
+    """
+    Motto / logo / anthem document structure follows moto,logo,anth.py output:
+      {
+        \"motto_section\": [...],
+        \"logo_section\": {...},
+        \"color_identity\": {...},
+        \"anthem\": [...],
+        ...
+      }
+    Again we keep these fields and only add url and scrapedAt.
+    """
+    return _with_common_fields(raw, URL_MLA)
 
 
 def _run_scraper(fn: Callable[[str], dict], url: str) -> dict[str, Any]:
