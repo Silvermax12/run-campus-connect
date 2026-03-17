@@ -66,12 +66,14 @@ Document ID: `our_history` (single document)
 ### run_governance
 Document ID: `governance` (single document)
 
-| Field       | Type     | Description                                      |
-|-------------|----------|--------------------------------------------------|
-| url         | string   | Page URL                                         |
-| fullContent | string   | Full governance content (team grid, boards, senate) |
-| imageUrls   | array    | Image URLs (profile photos, etc.)                |
-| scrapedAt   | timestamp| When scraped                                     |
+| Field            | Type     | Description                                            |
+|------------------|----------|--------------------------------------------------------|
+| url              | string   | Page URL                                               |
+| teamMembers      | array    | Leadership team: `{name, role, imageUrl, bio}`         |
+| boardOfTrustees  | array    | Board of Trustees: `{name, role}`                      |
+| governingCouncil | array    | Governing Council: `{name, role}`                      |
+| senateMembers    | array    | Senate: `{name, position}`                             |
+| scrapedAt        | timestamp| When scraped                                           |
 
 ### run_motto_logo_anthem
 Document ID: `motto_logo_anthem` (single document)

@@ -28,23 +28,22 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r python_backend/scripts/requirements-scraper.txt
-          playwright install --with-deps chromium
 
       - name: Write Firebase service account key
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > python_backend/serviceAccountKey.json
 
-      - name: Run news scraper
-        run: python python_backend/scripts/run_news_scraper.py
+      - name: Run institutional scraper controller
+        run: python python_backend/scripts/institutional_controller.py
 
-      - name: Commit and push cache if changed
+      - name: Commit and push institutional cache if changed
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add python_backend/scripts/scrape_cache.json
+          git add python_backend/scripts/institutional_cache.json
           if git diff --cached --quiet; then
             echo "No cache changes to commit."
           else
-            git commit -m "chore: update scrape_cache.json [skip ci]"
+            git commit -m "chore: update institutional_cache.json [skip ci]"
             git push
           fi
