@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/full_screen_image_viewer.dart';
+import '../../../core/widgets/shimmer_box.dart';
 import '../data/institutional_providers.dart';
 
 class HistoryScreen extends ConsumerWidget {
@@ -28,30 +29,54 @@ class HistoryScreen extends ConsumerWidget {
             );
           }
 
-          final fullHistory = data['fullHistory'] as String? ?? '';
-          final imageUrls =
-              (data['imageUrls'] as List<dynamic>?)?.cast<String>() ?? [];
-
-          // Split history into actual paragraphs
-          final paragraphs = fullHistory
-              .split('\n')
-              .map((p) => p.trim())
-              .where((p) => p.isNotEmpty)
+          // Structured format:
+          // {
+          //   "title": "Our History",
+          //   "blocks": [
+          //      { "type": "text", "content": ["para1", ...] },
+          //      { "type": "image", "url": "...", "alt": "..." },
+          //   ],
+          //   "last_updated": "...",
+          // }
+          final title = data['title'] as String? ?? 'Our History';
+          final blocks = (data['blocks'] as List<dynamic>? ?? [])
+              .whereType<Map<String, dynamic>>()
               .toList();
 
-          final heroImage = imageUrls.isNotEmpty ? imageUrls[0] : null;
+          // Fallback to legacy flat format if blocks are empty
+          if (blocks.isEmpty && data['fullHistory'] is String) {
+            final fullHistory = data['fullHistory'] as String? ?? '';
+            final imageUrls =
+                (data['imageUrls'] as List<dynamic>?)?.cast<String>() ?? [];
+
+            final paragraphs = fullHistory
+                .split('\n')
+                .map((p) => p.trim())
+                .where((p) => p.isNotEmpty)
+                .toList();
+
+            final heroImage = imageUrls.isNotEmpty ? imageUrls[0] : null;
+
+            return _LegacyHistoryLayout(
+              heroImage: heroImage,
+              paragraphs: paragraphs,
+              imageUrls: imageUrls,
+            );
+          }
+
+          final heroImage = _firstImageUrl(blocks);
 
           return CustomScrollView(
             slivers: [
-              // ── Header (Hero Image) ──────────────────────────────────────
+              // ── Header (Hero Image) ────────────────────────────────────
               SliverAppBar(
                 expandedHeight: heroImage != null ? 280.0 : kToolbarHeight,
                 pinned: true,
                 backgroundColor: AppTheme.runBlue,
                 flexibleSpace: FlexibleSpaceBar(
-                  title: const Text(
-                    'Our History',
-                    style: TextStyle(
+                  title: Text(
+                    title,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       shadows: [
@@ -70,8 +95,14 @@ class HistoryScreen extends ConsumerWidget {
                             CachedNetworkImage(
                               imageUrl: heroImage,
                               fit: BoxFit.cover,
+                              placeholder: (_, __) => const ShimmerBox(
+                                width: double.infinity,
+                                height: 280,
+                              ),
+                              errorWidget: (_, __, ___) => Container(
+                                color: AppTheme.runBlue,
+                              ),
                             ),
-                            // Dark gradient overlay to make text readable
                             const DecoratedBox(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
@@ -90,76 +121,70 @@ class HistoryScreen extends ConsumerWidget {
                 ),
               ),
 
-              // ── Article Body (Interleaved Text and Images) ───────────────
+              // ── Structured history blocks — faithful to JSON order ─────
+              // JSON block order: text → image → text → image → image → text
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
-                      if (index == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 24),
-                          child: Text(
-                            "Redeemer's University",
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.runBlue,
-                            ),
-                          ),
+                      if (index >= blocks.length) {
+                        return const SizedBox.shrink();
+                      }
+                      final block = blocks[index];
+                      final type = block['type'] as String? ?? '';
+
+                      // ── Image block ──────────────────────────────────
+                      if (type == 'image' && block['url'] is String) {
+                        final url = block['url'] as String;
+                        return _ArticleImage(
+                          imageUrl: url,
+                          index: index,
                         );
                       }
 
-                      // Adjust index because index 0 is the title
-                      final pIndex = index - 1;
-
-                      // Calculate if we need to show a paragraph or an image
-                      // Layout pattern: Paragraph -> Paragraph -> Image
-                      final isImageSlot = (pIndex + 1) % 3 == 0;
-                      final paragraphIndex = pIndex - (pIndex ~/ 3);
-                      final imageIndex = (pIndex ~/ 3) + 1; // +1 to skip hero
-
-                      if (isImageSlot) {
-                        if (imageIndex < imageUrls.length) {
-                          return _ArticleImage(
-                            imageUrl: imageUrls[imageIndex],
-                            index: imageIndex,
-                          );
+                      // ── Text block ───────────────────────────────────
+                      if (type == 'text') {
+                        final List<dynamic> content =
+                            block['content'] as List<dynamic>? ?? [];
+                        final paragraphs = content
+                            .map((e) => e.toString().trim())
+                            .where((p) => p.isNotEmpty)
+                            .toList();
+                        if (paragraphs.isEmpty) {
+                          return const SizedBox.shrink();
                         }
-                        return const SizedBox.shrink();
-                      }
-
-                      if (paragraphIndex < paragraphs.length) {
-                        final isFirstChar = paragraphIndex == 0;
-                        final text = paragraphs[paragraphIndex];
-
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 20),
-                          child: isFirstChar
-                              ? _DropCapParagraph(text: text)
-                              : Text(
-                                  text,
-                                  style: theme.textTheme.bodyLarge?.copyWith(
-                                    height: 1.8,
-                                    color: Colors.black87,
-                                    fontSize: 16,
-                                  ),
-                                ),
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (var i = 0; i < paragraphs.length; i++)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 20),
+                                child: index == 0 && i == 0
+                                    ? _DropCapParagraph(
+                                        text: paragraphs[i],
+                                      )
+                                    : Text(
+                                        paragraphs[i],
+                                        style: theme.textTheme.bodyLarge
+                                            ?.copyWith(
+                                          height: 1.8,
+                                          color: Colors.black87,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                              ),
+                          ],
                         );
                       }
 
                       return const SizedBox.shrink();
                     },
-                    // Total count: 1 Title + paragraphs + image slots
-                    childCount: 1 +
-                        paragraphs.length +
-                        (paragraphs.length ~/ 2), // Approx 1 image per 2 paragraphs
+                    childCount: blocks.length,
                   ),
                 ),
               ),
-
-              // ── Remaining Gallery (if any) ───────────────────────────────
-              _buildRemainingGallery(context, imageUrls,
-                  startIndex: (paragraphs.length ~/ 2) + 1),
 
               const SliverToBoxAdapter(child: SizedBox(height: 48)),
             ],
@@ -175,70 +200,153 @@ class HistoryScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _buildRemainingGallery(
-      BuildContext context, List<String> imageUrls, {required int startIndex}) {
-    if (startIndex >= imageUrls.length) {
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
+// ── Legacy layout used when Firestore still has the old flat fields ──────────
+class _LegacyHistoryLayout extends StatelessWidget {
+  final String? heroImage;
+  final List<String> paragraphs;
+  final List<String> imageUrls;
 
-    final remainingImages = imageUrls.sublist(startIndex);
+  const _LegacyHistoryLayout({
+    required this.heroImage,
+    required this.paragraphs,
+    required this.imageUrls,
+  });
 
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      sliver: SliverToBoxAdapter(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Divider(height: 40, thickness: 1),
-            Text(
-              'Gallery',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.runBlue,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.2,
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return CustomScrollView(
+      slivers: [
+        SliverAppBar(
+          expandedHeight: heroImage != null ? 280.0 : kToolbarHeight,
+          pinned: true,
+          backgroundColor: AppTheme.runBlue,
+          flexibleSpace: FlexibleSpaceBar(
+            title: const Text(
+              'Our History',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(
+                    color: Colors.black54,
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  )
+                ],
               ),
-              itemCount: remainingImages.length,
-              itemBuilder: (context, index) {
-                final url = remainingImages[index];
-                final realIndex = startIndex + index;
-                return GestureDetector(
-                  onTap: () => FullScreenImageViewer.open(
-                    context,
-                    imageUrl: url,
-                    heroTag: 'history-img-$realIndex',
-                  ),
-                  child: Hero(
-                    tag: 'history-img-$realIndex',
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: CachedNetworkImage(
-                        imageUrl: url,
+            ),
+            background: heroImage != null
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CachedNetworkImage(
+                        imageUrl: heroImage!,
                         fit: BoxFit.cover,
+                        placeholder: (_, __) => const ShimmerBox(
+                          width: double.infinity,
+                          height: 280,
+                        ),
+                        errorWidget: (_, __, ___) =>
+                            Container(color: AppTheme.runBlue),
+                      ),
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black26,
+                              Colors.black87,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : null,
+          ),
+        ),
+        SliverPadding(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Text(
+                      "Redeemer's University",
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.runBlue,
                       ),
                     ),
-                  ),
-                );
+                  );
+                }
+
+                final pIndex = index - 1;
+                final isImageSlot = (pIndex + 1) % 3 == 0;
+                final paragraphIndex = pIndex - (pIndex ~/ 3);
+                final imageIndex = (pIndex ~/ 3) + 1;
+
+                if (isImageSlot) {
+                  if (imageIndex < imageUrls.length) {
+                    return _ArticleImage(
+                      imageUrl: imageUrls[imageIndex],
+                      index: imageIndex,
+                    );
+                  }
+                  return const SizedBox.shrink();
+                }
+
+                if (paragraphIndex < paragraphs.length) {
+                  final isFirstChar = paragraphIndex == 0;
+                  final text = paragraphs[paragraphIndex];
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: isFirstChar
+                        ? _DropCapParagraph(text: text)
+                        : Text(
+                            text,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              height: 1.8,
+                              color: Colors.black87,
+                              fontSize: 16,
+                            ),
+                          ),
+                  );
+                }
+
+                return const SizedBox.shrink();
               },
+              childCount: 1 +
+                  paragraphs.length +
+                  (paragraphs.length ~/ 2),
             ),
-          ],
+          ),
         ),
-      ),
+        const SliverToBoxAdapter(child: SizedBox(height: 48)),
+      ],
     );
   }
 }
 
-// ── Drop Cap Text for the very first paragraph ──────────────────────────────
+String? _firstImageUrl(List<Map<String, dynamic>> blocks) {
+  for (final b in blocks) {
+    if (b['type'] == 'image' && b['url'] is String) {
+      final u = (b['url'] as String).trim();
+      if (u.isNotEmpty) return u;
+    }
+  }
+  return null;
+}
+
+// ── Drop Cap Text for the very first paragraph ───────────────────────────────
 class _DropCapParagraph extends StatelessWidget {
   final String text;
 
@@ -279,7 +387,7 @@ class _DropCapParagraph extends StatelessWidget {
   }
 }
 
-// ── In-article Image Component ──────────────────────────────────────────────
+// ── In-article Image Component ───────────────────────────────────────────────
 class _ArticleImage extends StatelessWidget {
   final String imageUrl;
   final int index;
@@ -306,6 +414,20 @@ class _ArticleImage extends StatelessWidget {
                 imageUrl: imageUrl,
                 width: double.infinity,
                 fit: BoxFit.cover,
+                placeholder: (_, __) => const ShimmerBox(
+                  width: double.infinity,
+                  height: 250,
+                  borderRadius: 16,
+                ),
+                errorWidget: (_, __, ___) => Container(
+                  height: 250,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.broken_image_outlined,
+                      size: 48, color: Colors.grey),
+                ),
               ),
             ),
           ),
