@@ -1,121 +1,219 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../data/governance_html_repository.dart';
+import '../data/institutional_providers.dart';
 
-/// Asset key for the bundled Governance page. Using [loadFlutterAsset] lets
-/// relative paths like ./Governance_files/*.css resolve from the asset bundle.
-const String _kGovernanceAssetKey = 'assets/webpages/Governance.html';
-
-class GovernanceScreen extends StatefulWidget {
+class GovernanceScreen extends ConsumerWidget {
   const GovernanceScreen({super.key});
 
   static const routeName = 'governance';
   static const routePath = '/governance';
 
   @override
-  State<GovernanceScreen> createState() => _GovernanceScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final govAsync = ref.watch(runGovernanceProvider);
 
-class _GovernanceScreenState extends State<GovernanceScreen> {
-  late final WebViewController _controller;
-  late final GovernanceHtmlRepository _repository;
-
-  /// True only after content has loaded and cleanup CSS has been injected.
-  /// Keeps the WebView hidden until then so users never see elements being removed.
-  bool _contentReady = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _repository = GovernanceHtmlRepository();
-
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.white)
-      ..addJavaScriptChannel(
-        'Flutter',
-        onMessageReceived: (_) {},
-      )
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (_) => _onPageFinished(),
-          onNavigationRequest: (req) {
-            if (req.url.startsWith('https://run.edu.ng/')) {
-              return NavigationDecision.navigate;
-            }
-            return NavigationDecision.prevent;
-          },
-        ),
-      );
-
-    // 1) Load bundled HTML via loadFlutterAsset so ./Governance_files/* resolves.
-    _controller.loadFlutterAsset(_kGovernanceAssetKey).catchError((_) async {
-      try {
-        final html = await rootBundle.loadString(_kGovernanceAssetKey);
-        if (!mounted) return;
-        await _controller.loadHtmlString(html);
-        await _injectCleanupCSS();
-        if (mounted) setState(() => _contentReady = true);
-      } catch (_) {}
-    });
-
-    // 2) Quietly refresh from live site in background.
-    _refreshFromNetworkSilently();
-  }
-
-  /// Runs after page load: inject cleanup CSS, then reveal content to the user.
-  Future<void> _onPageFinished() async {
-    await _injectCleanupCSS();
-    if (mounted) setState(() => _contentReady = true);
-  }
-
-  /// Injects CSS to hide sidebar, header, footer, Calendly badge, etc.
-  Future<void> _injectCleanupCSS() {
-    return _controller.runJavaScript('''
-      (function() {
-        if (!document.head) return;
-        var style = document.createElement('style');
-        style.textContent = [
-          '#menu-1-3fd610bc { display: none !important; }',
-          '.elementor-nav-menu { display: none !important; }',
-          '.elementor-widget-nav-menu { display: none !important; }',
-          '.d-button { display: none !important; }',
-          'header.site-header { display: none !important; }',
-          'footer.site-footer { display: none !important; }',
-          '.pum-overlay, #cookie-law-info-bar { display: none !important; }',
-          '.calendly-badge-widget { display: none !important; }',
-        ].join('');
-        document.head.appendChild(style);
-      })();
-    ''');
-  }
-
-  /// Fetches the latest HTML in the background. On success: hide, swap content,
-  /// inject cleanup, then reveal. User never sees the raw page or elements being removed.
-  Future<void> _refreshFromNetworkSilently() async {
-    final html = await _repository.fetchLatestHtml();
-    if (!mounted || html == null) return;
-
-    setState(() => _contentReady = false);
-    await _controller.loadHtmlString(html);
-    // onPageFinished will run cleanup and set _contentReady = true
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Governance'),
         backgroundColor: AppTheme.runBlue,
         foregroundColor: Colors.white,
       ),
-      body: Opacity(
-        opacity: _contentReady ? 1.0 : 0.0,
-        child: WebViewWidget(controller: _controller),
+      body: govAsync.when(
+        data: (data) {
+          if (data == null) {
+            return const Center(child: Text('No governance info available.'));
+          }
+
+          // Shape from gov.py:
+          // {
+          //   "officers": [
+          //     { "name": "...", "role": "...", "image_url": "..." },
+          //   ],
+          //   "senate": [
+          //     { "name": "...", "designation": "..." },
+          //   ],
+          //   ...
+          // }
+          final officers =
+              (data['officers'] as List<dynamic>? ?? []).whereType<Map>().toList();
+          final senate =
+              (data['senate'] as List<dynamic>? ?? []).whereType<Map>().toList();
+
+          return CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate(
+                    [
+                      // ── Leadership / Officers grid ─────────────────────
+                      if (officers.isNotEmpty) ...[
+                        Text(
+                          'University Leadership',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.runBlue,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _OfficersGrid(officers: officers),
+                        const SizedBox(height: 32),
+                      ],
+
+                      // ── Senate Members ─────────────────────────────────
+                      if (senate.isNotEmpty) ...[
+                        Text(
+                          'University Senate Members',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.runBlue,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _SenateTable(senate: senate),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+        loading: () =>
+            const Center(child: CircularProgressIndicator.adaptive()),
+        error: (err, _) => Center(child: Text('Error: $err')),
       ),
     );
   }
 }
+
+class _OfficersGrid extends StatelessWidget {
+  final List<Map> officers;
+
+  const _OfficersGrid({required this.officers});
+
+  @override
+  Widget build(BuildContext context) {
+    final crossAxisCount = MediaQuery.of(context).size.width > 600 ? 3 : 2;
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 0.75,
+      ),
+      itemCount: officers.length,
+      itemBuilder: (context, index) {
+        final o = officers[index];
+        final name = (o['name'] as String? ?? '').trim();
+        final role = (o['role'] as String? ?? '').trim();
+        final imageUrl = (o['image_url'] as String? ?? '').trim();
+
+        return Card(
+          clipBehavior: Clip.antiAlias,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: imageUrl.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                      )
+                    : Container(
+                        color: Colors.grey.shade200,
+                        child: Icon(
+                          Icons.person,
+                          size: 64,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(12),
+                color: AppTheme.runBlue,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (role.isNotEmpty)
+                      Text(
+                        role,
+                        style: const TextStyle(
+                          color: AppTheme.runGold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    if (role.isNotEmpty) const SizedBox(height: 4),
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SenateTable extends StatelessWidget {
+  final List<Map> senate;
+
+  const _SenateTable({required this.senate});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        headingRowColor:
+            WidgetStateProperty.all(AppTheme.runBlue.withOpacity(0.1)),
+        columns: const [
+          DataColumn(
+            label: Text(
+              'Name',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          DataColumn(
+            label: Text(
+              'Designation',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+        rows: senate
+            .map(
+              (m) => DataRow(
+                cells: [
+                  DataCell(Text((m['name'] as String? ?? '').trim())),
+                  DataCell(Text((m['designation'] as String? ?? '').trim())),
+                ],
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
