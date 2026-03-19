@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/full_screen_image_viewer.dart';
+import '../../../core/widgets/shimmer_box.dart';
 
 class NewsDetailScreen extends StatelessWidget {
   const NewsDetailScreen({super.key, required this.newsItem});
@@ -39,10 +40,9 @@ class NewsDetailScreen extends StatelessWidget {
                     imageUrl: imageUrl,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
+                    placeholder: (_, __) => const ShimmerBox(
+                      width: double.infinity,
                       height: 250,
-                      color: Colors.grey.shade200,
-                      child: const Center(child: CircularProgressIndicator()),
                     ),
                     errorWidget: (_, __, ___) => Container(
                       height: 250,
