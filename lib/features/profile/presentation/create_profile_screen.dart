@@ -172,11 +172,15 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
       }
 
       final firestore = ref.read(firestoreProvider);
-      
+      final displayName = _nameController.text.trim();
+      final parts = displayName.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+      final lastName = parts.isEmpty ? displayName : parts.last;
+
       await firestore.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'email': user.email,
-        'displayName': _nameController.text.trim(),
+        'displayName': displayName,
+        'lastName': lastName,
         'faculty': _selectedFaculty ?? '',
         'department': _selectedDepartment ?? '',
         'level': _selectedLevel,
