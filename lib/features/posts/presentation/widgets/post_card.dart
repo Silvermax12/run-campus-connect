@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/widgets/shimmer_box.dart';
 import '../../application/like_service.dart';
 import '../../data/post_repository.dart';
 import '../../domain/post.dart';
@@ -22,6 +23,47 @@ class PostCard extends ConsumerStatefulWidget {
 
 class _PostCardState extends ConsumerState<PostCard> {
   bool _viewCounted = false;
+
+  bool get _isAuthor {
+    final uid = ref.read(firebaseAuthProvider).currentUser?.uid;
+    return uid != null && uid == widget.post.author.uid;
+  }
+
+  Future<void> _showDeleteConfirm(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete post'),
+        content: const Text(
+          'Are you sure you want to delete this post? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    try {
+      await ref.read(postRepositoryProvider).deletePost(widget.post.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Post deleted')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete: $e')),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -100,6 +142,28 @@ class _PostCardState extends ConsumerState<PostCard> {
                     color: Colors.grey[600],
                   ),
                 ),
+                if (_isAuthor) ...[
+                  const SizedBox(width: 4),
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_vert, color: Colors.grey[600]),
+                    padding: EdgeInsets.zero,
+                    onSelected: (value) {
+                      if (value == 'delete') _showDeleteConfirm(context);
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Delete post', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 16),
@@ -123,8 +187,10 @@ class _PostCardState extends ConsumerState<PostCard> {
                         imageUrl: widget.post.imageUrl!,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) => const Center(
-                          child: CircularProgressIndicator(),
+                        placeholder: (context, url) => const ShimmerBox(
+                          width: double.infinity,
+                          height: 350,
+                          borderRadius: 16,
                         ),
                         errorWidget: (context, url, error) => const Center(
                           child: Icon(Icons.image_not_supported, color: Colors.grey),
