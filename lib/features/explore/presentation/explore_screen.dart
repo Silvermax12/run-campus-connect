@@ -5,8 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../profile/presentation/about_run_screen.dart';
+import '../../../core/widgets/shimmer_box.dart';
 import '../data/run_news_provider.dart';
+import 'contacts.dart';
 import 'governance_screen.dart';
 import 'history_screen.dart';
 import 'motto_logo_anthem_screen.dart';
@@ -227,10 +228,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           _drawerItem(
             context,
             icon: Icons.phone_in_talk,
-            label: 'Contact',
+            label: 'Contacts',
             onTap: () {
               Navigator.pop(context);
-              context.push(AboutRunScreen.routePath);
+              context.push(ContactsScreen.routePath);
             },
           ),
         ],
@@ -293,10 +294,9 @@ class _NewsCard extends StatelessWidget {
                     imageUrl: imageUrl,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
+                    placeholder: (_, __) => const ShimmerBox(
+                      width: double.infinity,
                       height: 180,
-                      color: Colors.grey.shade200,
-                      child: const Center(child: CircularProgressIndicator()),
                     ),
                     errorWidget: (_, __, ___) => Container(
                       height: 180,
