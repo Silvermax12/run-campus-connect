@@ -158,11 +158,16 @@ class AuthRepository {
       throw AuthFailure('Unable to create your fresher account.');
     }
 
+    final displayName = fullName.trim();
+    final parts = displayName.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+    final lastName = parts.isEmpty ? displayName : parts.last;
+
     // 2. Save user data to Firestore
     await _firestore.collection('users').doc(user.uid).set({
       'uid': user.uid,
       'email': email,
-      'displayName': fullName.trim(),
+      'displayName': displayName,
+      'lastName': lastName,
       'jambNumber': jambNumber.trim().toUpperCase(),
       'department': department.trim(),
       'isVerified': false,
