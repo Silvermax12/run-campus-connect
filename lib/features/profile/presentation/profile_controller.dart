@@ -50,9 +50,13 @@ class ProfileController extends _$ProfileController {
       // Update Auth Profile
       await user.updateDisplayName(name);
       
+      final parts = name.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+      final lastName = parts.isEmpty ? name : parts.last;
+
       // Update Firestore User Doc
       await firestore.collection('users').doc(user.uid).update({
         'displayName': name,
+        'lastName': lastName,
         'faculty': faculty,
         'department': department,
         'bio': bio,
