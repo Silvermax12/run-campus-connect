@@ -40,7 +40,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
 
     if (myUid == null) {
       return const Scaffold(
-        body: Center(child: Text('Please sign in to view notifications')),
+        body: const Center(child: Text('Please sign in to view notifications')),
       );
     }
 
