@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/auth_repository.dart';
 import '../../domain/auth_destination.dart';
+import '../widgets/auth_form_scaffold.dart';
 import 'fresher_controller.dart';
 import 'fresher_signup_screen.dart';
 import 'pending_verification_screen.dart';
@@ -96,140 +97,118 @@ class _FresherSignInScreenState extends ConsumerState<FresherSignInScreen> {
     final isLoading = state.isLoading;
     final theme = Theme.of(context);
 
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── Header ──
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2E7D32),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: const Center(
-                      child:
-                          Icon(Icons.school, color: Colors.white, size: 48),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Fresher Login',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'RUN Campus Connect',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: const Color(0xFF2E7D32),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Sign in with your JAMB number.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
+    return AuthFormScaffold(
+      children: [
+        // ── Header ──
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2E7D32),
+                borderRadius: BorderRadius.circular(24),
               ),
-              const SizedBox(height: 32),
+              child: const Center(
+                child: Icon(Icons.school, color: Colors.white, size: 48),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Fresher Login',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'RUN Campus Connect',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: const Color(0xFF2E7D32),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Sign in with your JAMB number.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
 
-              // ── Form Card ──
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 24,
+        // ── Form Card ──
+        AuthFormCard(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: _jambController,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    labelText: 'JAMB Registration Number',
+                    hintText: 'e.g., 12345678AB',
+                    prefixIcon: Icon(Icons.confirmation_number_outlined),
                   ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _jambController,
-                          textCapitalization: TextCapitalization.characters,
-                          decoration: const InputDecoration(
-                            labelText: 'JAMB Registration Number',
-                            hintText: 'e.g., 12345678AB',
-                            prefixIcon:
-                                Icon(Icons.confirmation_number_outlined),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'JAMB number is required.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: Icon(Icons.lock_outline),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Password is required.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: isLoading ? null : _onLoginPressed,
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
-                              child: isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Login',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'JAMB number is required.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Password',
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Password is required.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: isLoading ? null : _onLoginPressed,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text(
+                              'Login',
+                              style: TextStyle(fontSize: 16),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: isLoading
-                              ? null
-                              : () => context
-                                  .go(FresherSignUpScreen.routePath),
-                          child: const Text(
-                            "Don't have an account? Register",
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: isLoading
+                      ? null
+                      : () => context.go(FresherSignUpScreen.routePath),
+                  child: const Text("Don't have an account? Register"),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
