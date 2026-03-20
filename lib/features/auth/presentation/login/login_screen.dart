@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../domain/auth_destination.dart';
 import '../verify/verify_email_screen.dart';
 import '../../data/auth_repository.dart';
+import '../widgets/auth_form_scaffold.dart';
 import 'login_controller.dart';
 import '../../../home/presentation/home_screen.dart';
 import '../../../profile/presentation/create_profile_screen.dart';
@@ -102,25 +103,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final state = ref.watch(loginControllerProvider);
     final isLoading = state.isLoading;
 
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _HeaderSection(isRegisterMode: _isRegisterMode),
-              const SizedBox(height: 32),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 24,
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
+    return AuthFormScaffold(
+      children: [
+        _HeaderSection(isRegisterMode: _isRegisterMode),
+        const SizedBox(height: 32),
+        AuthFormCard(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
@@ -225,11 +216,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // ── Fresher Links ──
-              Card(
+        ),
+        const SizedBox(height: 16),
+        // ── Fresher Links ──
+        Card(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
@@ -274,11 +264,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                   ),
                 ),
-              ),
-            ],
-          ),
         ),
-      ),
+      ],
     );
   }
 }
