@@ -262,10 +262,13 @@ class _FeedTabState extends ConsumerState<_FeedTab>
           return ListView.builder(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
+            cacheExtent: 500,
             itemCount: feedState.posts.length + 1,
             itemBuilder: (context, index) {
               if (index < feedState.posts.length) {
-                return PostCard(post: feedState.posts[index]);
+                return RepaintBoundary(
+                  child: PostCard(post: feedState.posts[index]),
+                );
               }
               if (feedState.isLoadingMore) {
                 return const Padding(
