@@ -87,7 +87,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
             const SizedBox(width: 10),
-            const Text('Campus Connect'),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "Redeemer's University",
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                Text('Campus Connect'),
+              ],
+            ),
           ],
         ),
         actions: [
