@@ -156,7 +156,7 @@ class _PostCardState extends ConsumerState<PostCard> {
                         child: Row(
                           children: [
                             Icon(Icons.delete_outline, color: Colors.red),
-                            SizedBox(width: 8),
+                            const SizedBox(width: 8),
                             Text('Delete post', style: TextStyle(color: Colors.red)),
                           ],
                         ),
@@ -242,9 +242,12 @@ class _ViewCount extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch real-time post data for live view count
-    final postAsync = ref.watch(postStreamProvider(post.id));
-    final viewCount = postAsync.valueOrNull?.viewCount ?? post.viewCount;
+    // Watch only viewCount to avoid rebuilds when other Post fields change
+    final viewCount = ref.watch(
+      postStreamProvider(post.id).select(
+        (v) => v.valueOrNull?.viewCount ?? post.viewCount,
+      ),
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -309,14 +312,20 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
       }
     });
 
-    // We also eagerly watch the providers so the widget rebuilds when data changes.
-    final isLikedAsync =
-        ref.watch(checkPostLikedProvider(postId: widget.post.id));
-    final postAsync = ref.watch(postStreamProvider(widget.post.id));
+    // Watch only isLiked and likeCount to avoid rebuilds when other Post fields change
+    final isLikedFromProvider = ref.watch(
+      checkPostLikedProvider(postId: widget.post.id).select(
+        (v) => v.value ?? false,
+      ),
+    );
+    final likeCountFromProvider = ref.watch(
+      postStreamProvider(widget.post.id).select(
+        (v) => v.value?.likeCount ?? widget.post.likeCount,
+      ),
+    );
 
-    final isLiked = _isLiked ?? isLikedAsync.value ?? false;
-    final likeCount =
-        _likeCount ?? postAsync.value?.likeCount ?? widget.post.likeCount;
+    final isLiked = _isLiked ?? isLikedFromProvider;
+    final likeCount = _likeCount ?? likeCountFromProvider;
 
     return InkWell(
       onTap: () => _toggleLike(isLiked),

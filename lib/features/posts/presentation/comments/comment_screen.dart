@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -81,6 +82,7 @@ class _CommentScreenState extends ConsumerState<CommentScreen> {
 
                 return ListView.separated(
                   controller: _scrollController,
+                  cacheExtent: 300,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 8,
@@ -133,7 +135,7 @@ class _CommentCard extends StatelessWidget {
           radius: 16,
           backgroundImage:
               comment.authorPhotoUrl.isNotEmpty
-                  ? NetworkImage(comment.authorPhotoUrl)
+                  ? CachedNetworkImageProvider(comment.authorPhotoUrl)
                   : null,
           child:
               comment.authorPhotoUrl.isEmpty
