@@ -25,7 +25,7 @@ import '../features/profile/presentation/create_profile_screen.dart';
 import '../features/profile/presentation/edit_profile_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/profile/presentation/user_profile_screen.dart';
-import '../features/profile/presentation/about_run_screen.dart';
+import '../features/explore/presentation/contacts.dart';
 import 'widgets/app_shell.dart';
 
 part 'app_router.g.dart';
@@ -61,7 +61,7 @@ GoRouter appRouter(Ref ref) {
       // Logged in but on login/verify/fresher-auth page → check profile and redirect
       if (isLoggedIn && (isLoggingIn || isVerifying || isFresherSignUp || isFresherSignIn)) {
         final firestore = ref.read(firestoreProvider);
-        final doc = await firestore.collection('users').doc(user!.uid).get();
+        final doc = await firestore.collection('users').doc(user.uid).get();
         
         if (doc.exists) {
           // If fresher and not yet verified, go to pending screen
@@ -85,7 +85,7 @@ GoRouter appRouter(Ref ref) {
       // Logged in and trying to access app → check if profile exists + fresher verification
       if (isLoggedIn && !isCreatingProfile) {
         final firestore = ref.read(firestoreProvider);
-        final doc = await firestore.collection('users').doc(user!.uid).get();
+        final doc = await firestore.collection('users').doc(user.uid).get();
         
         if (!doc.exists) {
           return CreateProfileScreen.routePath;
@@ -239,9 +239,9 @@ GoRouter appRouter(Ref ref) {
         },
       ),
       GoRoute(
-        path: AboutRunScreen.routePath,
-        name: AboutRunScreen.routeName,
-        builder: (context, state) => const AboutRunScreen(),
+        path: ContactsScreen.routePath,
+        name: ContactsScreen.routeName,
+        builder: (context, state) => const ContactsScreen(),
       ),
       GoRoute(
         path: NewsDetailScreen.routePath,
