@@ -10,6 +10,21 @@ service cloud.firestore {
     function isAuthor(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
+    function isOnlyCounterUpdate() {
+      // Allow non-authors to update ONLY engagement counters.
+      // NOTE: Firestore rules cannot reliably verify that a matching like/view
+      // doc write occurred in the same transaction, so this is a best-effort gate.
+      return isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['likeCount', 'viewCount', 'commentCount']);
+    }
+    function isValidCounterDelta(field, minDelta, maxDelta) {
+      return (request.resource.data[field] is int)
+        && (resource.data[field] is int)
+        && (request.resource.data[field] - resource.data[field] >= minDelta)
+        && (request.resource.data[field] - resource.data[field] <= maxDelta)
+        && request.resource.data[field] >= 0;
+    }
 
     // --- 1. USERS COLLECTION (Fixed for Badges) ---
     match /users/{userId} {
@@ -32,17 +47,33 @@ service cloud.firestore {
     match /posts/{postId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.authorSnapshot.uid == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.authorSnapshot.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.authorSnapshot.uid == request.auth.uid;
+      allow update: if (isSignedIn() && resource.data.authorSnapshot.uid == request.auth.uid)
+                    || (isOnlyCounterUpdate()
+                        && isValidCounterDelta('likeCount', -1, 1)
+                        && isValidCounterDelta('commentCount', 0, 1)
+                        && isValidCounterDelta('viewCount', 0, 1));
 
       match /likes/{userId} {
         allow read: if isSignedIn();
-        allow write: if isAuthor(userId);
+        allow create: if isAuthor(userId);
+        allow delete: if isAuthor(userId) || (isSignedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.authorSnapshot.uid == request.auth.uid);
+        allow update: if false;
+      }
+
+      match /views/{viewerUid} {
+        allow read: if isSignedIn();
+        // Each user may only create their own view doc; no edits/deletes.
+        allow create: if isAuthor(viewerUid);
+        allow delete: if isSignedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.authorSnapshot.uid == request.auth.uid;
+        allow update: if false;
       }
 
       match /comments/{commentId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-        allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
+        allow delete: if (isSignedIn() && resource.data.authorId == request.auth.uid)
+                      || (isSignedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.authorSnapshot.uid == request.auth.uid);
       }
     }
 
