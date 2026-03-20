@@ -1,5 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,8 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/firebase_providers.dart';
 import '../../explore/presentation/explore_controller.dart';
 import '../../profile/presentation/user_profile_screen.dart';
-import '../data/chat_repository.dart';
 import '../domain/chat.dart';
+import '../providers/chat_stream_providers.dart';
 import 'chat_screen.dart';
 
 class InboxScreen extends ConsumerStatefulWidget {
@@ -48,7 +47,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     final myUid = ref.watch(firebaseAuthProvider).currentUser?.uid;
     if (myUid == null) {
       return const Scaffold(
-          body: Center(child: CircularProgressIndicator()));
+          body: const Center(child: CircularProgressIndicator()));
     }
 
     final chatsStream = ref.watch(userChatsStreamProvider(myUid));
@@ -282,18 +281,3 @@ class _ChatListTile extends ConsumerWidget {
     return '${dateTime.day}/${dateTime.month}';
   }
 }
-
-// Providers
-final userChatsStreamProvider =
-    StreamProvider.family<List<Chat>, String>((ref, myUid) {
-  return ref.watch(chatRepositoryProvider).watchChats(myUid);
-});
-
-final userDocProvider =
-    StreamProvider.family<DocumentSnapshot, String>((ref, userId) {
-  return ref
-      .watch(firestoreProvider)
-      .collection('users')
-      .doc(userId)
-      .snapshots();
-});
