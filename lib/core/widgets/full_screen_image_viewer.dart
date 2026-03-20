@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import 'shimmer_box.dart';
+
 /// A full-screen image viewer with pinch-to-zoom and a close button.
 /// Opens with a Hero animation when provided a matching [heroTag].
 class FullScreenImageViewer extends StatelessWidget {
@@ -39,8 +41,20 @@ class FullScreenImageViewer extends StatelessWidget {
     final imageWidget = CachedNetworkImage(
       imageUrl: imageUrl,
       fit: BoxFit.contain,
-      placeholder: (_, __) => const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+      placeholder: (_, __) => LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth.isFinite ? constraints.maxWidth : null;
+          final h = constraints.maxHeight.isFinite ? constraints.maxHeight : 220.0;
+          return Center(
+            child: ShimmerBox(
+              width: w == null ? 240 : (w * 0.6).clamp(180.0, 360.0),
+              height: (h * 0.35).clamp(180.0, 360.0),
+              borderRadius: 16,
+              baseColor: Colors.white12,
+              highlightColor: Colors.white24,
+            ),
+          );
+        },
       ),
       errorWidget: (_, __, ___) => const Center(
         child: Icon(Icons.broken_image, color: Colors.white54, size: 64),
