@@ -146,16 +146,24 @@ class PostRepository {
     final docRef = _postsRef.doc();
 
     String? imageUrl;
+    String? imageDeleteToken;
+    String? imagePublicId;
     if (imageFile != null) {
-      imageUrl = await _cloudinaryService.uploadFile(imageFile);
+      final uploaded = await _cloudinaryService.uploadPostImage(imageFile);
+      imageUrl = uploaded.secureUrl;
+      imageDeleteToken = uploaded.deleteToken;
+      imagePublicId = uploaded.publicId;
     }
 
     final payload = {
       'id': docRef.id,
       'content': content.trim(),
       'imageUrl': imageUrl,
+      'imageDeleteToken': imageDeleteToken,
+      'imagePublicId': imagePublicId,
       'timestamp': FieldValue.serverTimestamp(),
       'likeCount': 0,
+      'viewCount': 0,
       'commentCount': 0,
       'authorSnapshot': {
         'uid': author.uid,
@@ -169,6 +177,58 @@ class PostRepository {
     };
 
     await docRef.set(payload);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Delete (post + subcollections + Cloudinary image)
+  // ---------------------------------------------------------------------------
+  Future<void> deletePost(String postId) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('You must be signed in to delete a post.');
+    }
+
+    final postDocRef = _postsRef.doc(postId);
+    final snap = await postDocRef.get();
+    if (!snap.exists) {
+      return;
+    }
+
+    final data = snap.data() ?? {};
+    final authorUid =
+        (data['authorSnapshot'] as Map?)?['uid']?.toString() ?? '';
+    if (authorUid != user.uid) {
+      throw Exception('You can only delete your own posts.');
+    }
+
+    final deleteToken = data['imageDeleteToken'] as String?;
+    if (deleteToken != null && deleteToken.trim().isNotEmpty) {
+      // Delete Cloudinary asset first so we don't lose the token.
+      await _cloudinaryService.deleteByToken(deleteToken);
+    }
+
+    // Delete subcollections (best-effort batching)
+    await _deleteSubcollection(postDocRef.collection('likes'));
+    await _deleteSubcollection(postDocRef.collection('views'));
+    await _deleteSubcollection(postDocRef.collection('comments'));
+
+    // Finally delete the post document itself.
+    await postDocRef.delete();
+  }
+
+  Future<void> _deleteSubcollection(
+    CollectionReference<Map<String, dynamic>> colRef,
+  ) async {
+    const batchLimit = 450;
+    while (true) {
+      final snapshot = await colRef.limit(batchLimit).get();
+      if (snapshot.docs.isEmpty) break;
+      final batch = _firestore.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
   }
 
   // ---------------------------------------------------------------------------
