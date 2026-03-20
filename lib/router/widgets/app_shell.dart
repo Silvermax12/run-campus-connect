@@ -20,11 +20,12 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final myUid = ref.watch(firebaseAuthProvider).currentUser?.uid;
-    final notificationsAsync = ref.watch(notificationsProvider(myUid ?? ''));
-    
-    final unreadCount = notificationsAsync.valueOrNull
-        ?.where((n) => !n.isRead)
-        .length ?? 0;
+    // Only rebuild when unread count changes, not when any notification changes
+    final unreadCount = ref.watch(
+      notificationsProvider(myUid ?? '').select(
+        (v) => v.valueOrNull?.where((n) => !n.isRead).length ?? 0,
+      ),
+    );
 
     return Scaffold(
       body: navigationShell,
