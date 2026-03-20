@@ -8,7 +8,6 @@ import '../../../core/providers/firebase_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/presentation/login/login_screen.dart';
 import '../../posts/presentation/widgets/post_card.dart';
-import 'about_run_screen.dart';
 import 'edit_profile_screen.dart';
 import 'profile_controller.dart';
 
@@ -133,23 +132,7 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              // ── About RUN ──────────────────────────────────────────────
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.info_outline,
-                          color: AppTheme.runBlue),
-                      title: const Text('About RUN'),
-                      subtitle: const Text('History & Emergency Contacts'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.push(AboutRunScreen.routePath),
-                    ),
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              // ── Contacts ───────────────────────────────────────────────
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 sliver: SliverToBoxAdapter(
