@@ -115,17 +115,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 }
                 return ListView.builder(
                   reverse: true,
+                  cacheExtent: 400,
                   padding: const EdgeInsets.all(16),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
                     final isMe = message.senderId == myUid;
                     final senderName = isMe ? 'You' : (widget.targetUserName ?? 'User');
-                    return _MessageBubble(
-                      message: message,
-                      isMe: isMe,
-                      senderName: senderName,
-                      onLongPress: () => _setReplyMessage(message, senderName),
+                    return RepaintBoundary(
+                      child: _MessageBubble(
+                        message: message,
+                        isMe: isMe,
+                        senderName: senderName,
+                        onLongPress: () => _setReplyMessage(message, senderName),
+                      ),
                     );
                   },
                 );
