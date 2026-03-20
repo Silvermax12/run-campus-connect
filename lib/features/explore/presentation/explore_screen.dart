@@ -94,7 +94,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                           children: [
                             Icon(Icons.article_outlined,
                                 size: 48, color: Colors.grey),
-                            SizedBox(height: 8),
+                            const SizedBox(height: 8),
                             Text('No news yet',
                                 style: TextStyle(color: Colors.grey)),
                           ],
@@ -120,7 +120,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               loading: () => const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.all(32),
-                  child: Center(child: CircularProgressIndicator()),
+                  child: const Center(child: CircularProgressIndicator()),
                 ),
               ),
               error: (err, _) => SliverToBoxAdapter(

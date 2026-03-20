@@ -191,7 +191,7 @@ class HistoryScreen extends ConsumerWidget {
           );
         },
         loading: () => const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
+          body: const Center(child: CircularProgressIndicator()),
         ),
         error: (err, _) => Scaffold(
           appBar: AppBar(),

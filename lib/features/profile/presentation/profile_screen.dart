@@ -1,15 +1,15 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/firebase_providers.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../auth/presentation/login/login_screen.dart';
-import '../../posts/presentation/widgets/post_card.dart';
+import '../providers/profile_stream_provider.dart';
 import 'edit_profile_screen.dart';
 import 'profile_controller.dart';
+import 'widgets/about_bottom_sheet.dart';
+import 'widgets/user_posts_list.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -24,13 +24,13 @@ class ProfileScreen extends ConsumerWidget {
 
     if (user == null) {
       return const Scaffold(
-        body: Center(child: Text('Please sign in to view your profile.')),
+        body: const Center(child: Text('Please sign in to view your profile.')),
       );
     }
 
     // Watch user doc for real-time updates (e.g. after edit)
     final userDocAsync = ref.watch(
-      streamProvider(
+      profileDocumentStreamProvider(
         ref.watch(firestoreProvider).collection('users').doc(user.uid),
       ),
     );
@@ -61,18 +61,9 @@ class ProfileScreen extends ConsumerWidget {
           final birthDay = (data['birthDay'] as num?)?.toInt();
           final birthMonth = (data['birthMonth'] as num?)?.toInt();
 
-          // Format birthday
-          String formattedBirthday = '';
-          if (birthDay != null && birthMonth != null) {
-            const months = [
-              '', 'January', 'February', 'March', 'April', 'May', 'June',
-              'July', 'August', 'September', 'October', 'November', 'December',
-            ];
-            if (birthMonth >= 1 && birthMonth <= 12) {
-              final suffix = _daySuffix(birthDay);
-              formattedBirthday = '${months[birthMonth]} $birthDay$suffix';
-            }
-          }
+          final formattedBirthday = (birthDay != null && birthMonth != null)
+              ? formatBirthday(birthMonth, birthDay)
+              : '';
 
           return CustomScrollView(
             slivers: [
@@ -107,13 +98,14 @@ class ProfileScreen extends ConsumerWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           OutlinedButton.icon(
-                            onPressed: () => _showAboutMe(
+                            onPressed: () => showAboutBottomSheet(
                               context,
                               name: name,
                               faculty: faculty,
                               department: dept,
                               birthday: formattedBirthday,
                               bio: bio,
+                              title: 'About Me',
                             ),
                             icon: const Icon(Icons.person_outline),
                             label: const Text('About Me'),
@@ -145,155 +137,13 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 8)),
-              _UserPostsList(userId: user.uid),
+              UserPostsList(userId: user.uid),
               const SliverToBoxAdapter(child: SizedBox(height: 24)),
             ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
-      ),
-    );
-  }
-
-  static void _showAboutMe(
-    BuildContext context, {
-    required String name,
-    required String faculty,
-    required String department,
-    required String birthday,
-    required String bio,
-  }) {
-    final theme = Theme.of(context);
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'About Me',
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const Divider(height: 24),
-              _aboutRow(Icons.person_outline, 'Name', name),
-              _aboutRow(Icons.account_balance_outlined, 'Faculty', faculty),
-              _aboutRow(Icons.school_outlined, 'Department', department),
-              if (birthday.isNotEmpty)
-                _aboutRow(Icons.cake_outlined, 'Birthday', birthday),
-              if (bio.isNotEmpty) _aboutRow(Icons.info_outline, 'Bio', bio),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  static Widget _aboutRow(IconData icon, String label, String value) {
-    if (value.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: AppTheme.runBlue),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 12, color: Colors.grey)),
-                const SizedBox(height: 2),
-                Text(value, style: const TextStyle(fontSize: 15)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static String _daySuffix(int day) {
-    if (day >= 11 && day <= 13) return 'th';
-    switch (day % 10) {
-      case 1:
-        return 'st';
-      case 2:
-        return 'nd';
-      case 3:
-        return 'rd';
-      default:
-        return 'th';
-    }
-  }
-}
-
-// Helper provider for simple stream
-final streamProvider = StreamProvider.family<DocumentSnapshot, DocumentReference>(
-  (ref, docRef) => docRef.snapshots(),
-);
-
-class _UserPostsList extends ConsumerWidget {
-  const _UserPostsList({required this.userId});
-
-  final String userId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final postsAsync = ref.watch(userPostsProvider(userId: userId));
-
-    return postsAsync.when(
-      data: (posts) {
-        if (posts.isEmpty) {
-          return const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(
-                child: Text('No posts yet.'),
-              ),
-            ),
-          );
-        }
-        return SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) => PostCard(post: posts[index]),
-            childCount: posts.length,
-          ),
-        );
-      },
-      loading: () => const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      ),
-      error: (err, _) => SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('Error loading posts: $err'),
-        ),
       ),
     );
   }
