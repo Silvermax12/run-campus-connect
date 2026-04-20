@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'package:riverpod/riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -30,4 +31,7 @@ Stream<User?> authStateChanges(Ref ref) {
   return ref.watch(firebaseAuthProvider).authStateChanges();
 }
 
-
+@Riverpod(keepAlive: true)
+FirebaseMessaging firebaseMessaging(Ref ref) {
+  return FirebaseMessaging.instance;
+}
