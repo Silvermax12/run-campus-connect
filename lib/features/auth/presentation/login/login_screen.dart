@@ -281,22 +281,13 @@ class _HeaderSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: 96,
-          height: 96,
-          decoration: BoxDecoration(
-            color: const Color(0xFF4169E1),
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: const Center(
-            child: Text(
-              'RUN',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 24,
-              ),
-            ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Image.asset(
+            'assets/images/run_logo.jpg',
+            width: 96,
+            height: 96,
+            fit: BoxFit.cover,
           ),
         ),
         const SizedBox(height: 16),
