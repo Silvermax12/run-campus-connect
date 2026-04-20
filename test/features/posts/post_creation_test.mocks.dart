@@ -6,14 +6,14 @@
 import 'dart:async' as _i6;
 import 'dart:io' as _i7;
 
-import 'package:firebase_auth/firebase_auth.dart' as _i4;
+import 'package:firebase_auth/firebase_auth.dart' as _i5;
 import 'package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart'
-    as _i3;
-import 'package:firebase_core/firebase_core.dart' as _i2;
+    as _i4;
+import 'package:firebase_core/firebase_core.dart' as _i3;
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:mockito/src/dummies.dart' as _i8;
 import 'package:run_campus_connect/core/services/cloudinary_service.dart'
-    as _i5;
+    as _i2;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -29,53 +29,59 @@ import 'package:run_campus_connect/core/services/cloudinary_service.dart'
 // ignore_for_file: camel_case_types
 // ignore_for_file: subtype_of_sealed_class
 
-class _FakeFirebaseApp_0 extends _i1.SmartFake implements _i2.FirebaseApp {
-  _FakeFirebaseApp_0(Object parent, Invocation parentInvocation)
+class _FakeCloudinaryUploadResult_0 extends _i1.SmartFake
+    implements _i2.CloudinaryUploadResult {
+  _FakeCloudinaryUploadResult_0(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeActionCodeInfo_1 extends _i1.SmartFake
-    implements _i3.ActionCodeInfo {
-  _FakeActionCodeInfo_1(Object parent, Invocation parentInvocation)
+class _FakeFirebaseApp_1 extends _i1.SmartFake implements _i3.FirebaseApp {
+  _FakeFirebaseApp_1(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeUserCredential_2 extends _i1.SmartFake
-    implements _i4.UserCredential {
-  _FakeUserCredential_2(Object parent, Invocation parentInvocation)
+class _FakeActionCodeInfo_2 extends _i1.SmartFake
+    implements _i4.ActionCodeInfo {
+  _FakeActionCodeInfo_2(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeConfirmationResult_3 extends _i1.SmartFake
-    implements _i4.ConfirmationResult {
-  _FakeConfirmationResult_3(Object parent, Invocation parentInvocation)
+class _FakeUserCredential_3 extends _i1.SmartFake
+    implements _i5.UserCredential {
+  _FakeUserCredential_3(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeUserMetadata_4 extends _i1.SmartFake implements _i3.UserMetadata {
-  _FakeUserMetadata_4(Object parent, Invocation parentInvocation)
+class _FakeConfirmationResult_4 extends _i1.SmartFake
+    implements _i5.ConfirmationResult {
+  _FakeConfirmationResult_4(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeMultiFactor_5 extends _i1.SmartFake implements _i4.MultiFactor {
-  _FakeMultiFactor_5(Object parent, Invocation parentInvocation)
+class _FakeUserMetadata_5 extends _i1.SmartFake implements _i4.UserMetadata {
+  _FakeUserMetadata_5(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeIdTokenResult_6 extends _i1.SmartFake implements _i3.IdTokenResult {
-  _FakeIdTokenResult_6(Object parent, Invocation parentInvocation)
+class _FakeMultiFactor_6 extends _i1.SmartFake implements _i5.MultiFactor {
+  _FakeMultiFactor_6(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeUser_7 extends _i1.SmartFake implements _i4.User {
-  _FakeUser_7(Object parent, Invocation parentInvocation)
+class _FakeIdTokenResult_7 extends _i1.SmartFake implements _i4.IdTokenResult {
+  _FakeIdTokenResult_7(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
+}
+
+class _FakeUser_8 extends _i1.SmartFake implements _i5.User {
+  _FakeUser_8(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
 /// A class which mocks [CloudinaryService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockCloudinaryService extends _i1.Mock implements _i5.CloudinaryService {
+class MockCloudinaryService extends _i1.Mock implements _i2.CloudinaryService {
   MockCloudinaryService() {
     _i1.throwOnMissingStub(this);
   }
@@ -90,26 +96,51 @@ class MockCloudinaryService extends _i1.Mock implements _i5.CloudinaryService {
             returnValue: _i6.Future<String?>.value(),
           )
           as _i6.Future<String?>);
+
+  @override
+  _i6.Future<_i2.CloudinaryUploadResult> uploadPostImage(
+    _i7.File? file, {
+    String? folder = 'run_campus_posts',
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#uploadPostImage, [file], {#folder: folder}),
+            returnValue: _i6.Future<_i2.CloudinaryUploadResult>.value(
+              _FakeCloudinaryUploadResult_0(
+                this,
+                Invocation.method(#uploadPostImage, [file], {#folder: folder}),
+              ),
+            ),
+          )
+          as _i6.Future<_i2.CloudinaryUploadResult>);
+
+  @override
+  _i6.Future<void> deleteByToken(String? deleteToken) =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteByToken, [deleteToken]),
+            returnValue: _i6.Future<void>.value(),
+            returnValueForMissingStub: _i6.Future<void>.value(),
+          )
+          as _i6.Future<void>);
 }
 
 /// A class which mocks [FirebaseAuth].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
+class MockFirebaseAuth extends _i1.Mock implements _i5.FirebaseAuth {
   MockFirebaseAuth() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i2.FirebaseApp get app =>
+  _i3.FirebaseApp get app =>
       (super.noSuchMethod(
             Invocation.getter(#app),
-            returnValue: _FakeFirebaseApp_0(this, Invocation.getter(#app)),
+            returnValue: _FakeFirebaseApp_1(this, Invocation.getter(#app)),
           )
-          as _i2.FirebaseApp);
+          as _i3.FirebaseApp);
 
   @override
-  set app(_i2.FirebaseApp? _app) => super.noSuchMethod(
+  set app(_i3.FirebaseApp? _app) => super.noSuchMethod(
     Invocation.setter(#app, _app),
     returnValueForMissingStub: null,
   );
@@ -161,17 +192,17 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
           as _i6.Future<void>);
 
   @override
-  _i6.Future<_i3.ActionCodeInfo> checkActionCode(String? code) =>
+  _i6.Future<_i4.ActionCodeInfo> checkActionCode(String? code) =>
       (super.noSuchMethod(
             Invocation.method(#checkActionCode, [code]),
-            returnValue: _i6.Future<_i3.ActionCodeInfo>.value(
-              _FakeActionCodeInfo_1(
+            returnValue: _i6.Future<_i4.ActionCodeInfo>.value(
+              _FakeActionCodeInfo_2(
                 this,
                 Invocation.method(#checkActionCode, [code]),
               ),
             ),
           )
-          as _i6.Future<_i3.ActionCodeInfo>);
+          as _i6.Future<_i4.ActionCodeInfo>);
 
   @override
   _i6.Future<void> confirmPasswordReset({
@@ -189,7 +220,7 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
           as _i6.Future<void>);
 
   @override
-  _i6.Future<_i4.UserCredential> createUserWithEmailAndPassword({
+  _i6.Future<_i5.UserCredential> createUserWithEmailAndPassword({
     required String? email,
     required String? password,
   }) =>
@@ -198,8 +229,8 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
               #email: email,
               #password: password,
             }),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#createUserWithEmailAndPassword, [], {
                   #email: email,
@@ -208,7 +239,7 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
   _i6.Future<List<String>> fetchSignInMethodsForEmail(String? email) =>
@@ -219,17 +250,17 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
           as _i6.Future<List<String>>);
 
   @override
-  _i6.Future<_i4.UserCredential> getRedirectResult() =>
+  _i6.Future<_i5.UserCredential> getRedirectResult() =>
       (super.noSuchMethod(
             Invocation.method(#getRedirectResult, []),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#getRedirectResult, []),
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
   bool isSignInWithEmailLink(String? emailLink) =>
@@ -240,33 +271,33 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
           as bool);
 
   @override
-  _i6.Stream<_i4.User?> authStateChanges() =>
+  _i6.Stream<_i5.User?> authStateChanges() =>
       (super.noSuchMethod(
             Invocation.method(#authStateChanges, []),
-            returnValue: _i6.Stream<_i4.User?>.empty(),
+            returnValue: _i6.Stream<_i5.User?>.empty(),
           )
-          as _i6.Stream<_i4.User?>);
+          as _i6.Stream<_i5.User?>);
 
   @override
-  _i6.Stream<_i4.User?> idTokenChanges() =>
+  _i6.Stream<_i5.User?> idTokenChanges() =>
       (super.noSuchMethod(
             Invocation.method(#idTokenChanges, []),
-            returnValue: _i6.Stream<_i4.User?>.empty(),
+            returnValue: _i6.Stream<_i5.User?>.empty(),
           )
-          as _i6.Stream<_i4.User?>);
+          as _i6.Stream<_i5.User?>);
 
   @override
-  _i6.Stream<_i4.User?> userChanges() =>
+  _i6.Stream<_i5.User?> userChanges() =>
       (super.noSuchMethod(
             Invocation.method(#userChanges, []),
-            returnValue: _i6.Stream<_i4.User?>.empty(),
+            returnValue: _i6.Stream<_i5.User?>.empty(),
           )
-          as _i6.Stream<_i4.User?>);
+          as _i6.Stream<_i5.User?>);
 
   @override
   _i6.Future<void> sendPasswordResetEmail({
     required String? email,
-    _i3.ActionCodeSettings? actionCodeSettings,
+    _i4.ActionCodeSettings? actionCodeSettings,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#sendPasswordResetEmail, [], {
@@ -281,7 +312,7 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
   @override
   _i6.Future<void> sendSignInLinkToEmail({
     required String? email,
-    required _i3.ActionCodeSettings? actionCodeSettings,
+    required _i4.ActionCodeSettings? actionCodeSettings,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#sendSignInLinkToEmail, [], {
@@ -325,7 +356,7 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
           as _i6.Future<void>);
 
   @override
-  _i6.Future<void> setPersistence(_i3.Persistence? persistence) =>
+  _i6.Future<void> setPersistence(_i4.Persistence? persistence) =>
       (super.noSuchMethod(
             Invocation.method(#setPersistence, [persistence]),
             returnValue: _i6.Future<void>.value(),
@@ -334,48 +365,48 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
           as _i6.Future<void>);
 
   @override
-  _i6.Future<_i4.UserCredential> signInAnonymously() =>
+  _i6.Future<_i5.UserCredential> signInAnonymously() =>
       (super.noSuchMethod(
             Invocation.method(#signInAnonymously, []),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#signInAnonymously, []),
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
-  _i6.Future<_i4.UserCredential> signInWithCredential(
-    _i3.AuthCredential? credential,
+  _i6.Future<_i5.UserCredential> signInWithCredential(
+    _i4.AuthCredential? credential,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#signInWithCredential, [credential]),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#signInWithCredential, [credential]),
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
-  _i6.Future<_i4.UserCredential> signInWithCustomToken(String? token) =>
+  _i6.Future<_i5.UserCredential> signInWithCustomToken(String? token) =>
       (super.noSuchMethod(
             Invocation.method(#signInWithCustomToken, [token]),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#signInWithCustomToken, [token]),
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
-  _i6.Future<_i4.UserCredential> signInWithEmailAndPassword({
+  _i6.Future<_i5.UserCredential> signInWithEmailAndPassword({
     required String? email,
     required String? password,
   }) =>
@@ -384,8 +415,8 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
               #email: email,
               #password: password,
             }),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#signInWithEmailAndPassword, [], {
                   #email: email,
@@ -394,10 +425,10 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
-  _i6.Future<_i4.UserCredential> signInWithEmailLink({
+  _i6.Future<_i5.UserCredential> signInWithEmailLink({
     required String? email,
     required String? emailLink,
   }) =>
@@ -406,8 +437,8 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
               #email: email,
               #emailLink: emailLink,
             }),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#signInWithEmailLink, [], {
                   #email: email,
@@ -416,32 +447,32 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
-  _i6.Future<_i4.UserCredential> signInWithProvider(
-    _i3.AuthProvider? provider,
+  _i6.Future<_i5.UserCredential> signInWithProvider(
+    _i4.AuthProvider? provider,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#signInWithProvider, [provider]),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#signInWithProvider, [provider]),
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
-  _i6.Future<_i4.ConfirmationResult> signInWithPhoneNumber(
+  _i6.Future<_i5.ConfirmationResult> signInWithPhoneNumber(
     String? phoneNumber, [
-    _i4.RecaptchaVerifier? verifier,
+    _i5.RecaptchaVerifier? verifier,
   ]) =>
       (super.noSuchMethod(
             Invocation.method(#signInWithPhoneNumber, [phoneNumber, verifier]),
-            returnValue: _i6.Future<_i4.ConfirmationResult>.value(
-              _FakeConfirmationResult_3(
+            returnValue: _i6.Future<_i5.ConfirmationResult>.value(
+              _FakeConfirmationResult_4(
                 this,
                 Invocation.method(#signInWithPhoneNumber, [
                   phoneNumber,
@@ -450,23 +481,23 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
               ),
             ),
           )
-          as _i6.Future<_i4.ConfirmationResult>);
+          as _i6.Future<_i5.ConfirmationResult>);
 
   @override
-  _i6.Future<_i4.UserCredential> signInWithPopup(_i3.AuthProvider? provider) =>
+  _i6.Future<_i5.UserCredential> signInWithPopup(_i4.AuthProvider? provider) =>
       (super.noSuchMethod(
             Invocation.method(#signInWithPopup, [provider]),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#signInWithPopup, [provider]),
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
-  _i6.Future<void> signInWithRedirect(_i3.AuthProvider? provider) =>
+  _i6.Future<void> signInWithRedirect(_i4.AuthProvider? provider) =>
       (super.noSuchMethod(
             Invocation.method(#signInWithRedirect, [provider]),
             returnValue: _i6.Future<void>.value(),
@@ -499,15 +530,15 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
   @override
   _i6.Future<void> verifyPhoneNumber({
     String? phoneNumber,
-    _i3.PhoneMultiFactorInfo? multiFactorInfo,
-    required _i3.PhoneVerificationCompleted? verificationCompleted,
-    required _i3.PhoneVerificationFailed? verificationFailed,
-    required _i3.PhoneCodeSent? codeSent,
-    required _i3.PhoneCodeAutoRetrievalTimeout? codeAutoRetrievalTimeout,
+    _i4.PhoneMultiFactorInfo? multiFactorInfo,
+    required _i4.PhoneVerificationCompleted? verificationCompleted,
+    required _i4.PhoneVerificationFailed? verificationFailed,
+    required _i4.PhoneCodeSent? codeSent,
+    required _i4.PhoneCodeAutoRetrievalTimeout? codeAutoRetrievalTimeout,
     String? autoRetrievedSmsCodeForTesting,
     Duration? timeout = const Duration(seconds: 30),
     int? forceResendingToken,
-    _i3.MultiFactorSession? multiFactorSession,
+    _i4.MultiFactorSession? multiFactorSession,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#verifyPhoneNumber, [], {
@@ -553,7 +584,7 @@ class MockFirebaseAuth extends _i1.Mock implements _i4.FirebaseAuth {
 /// A class which mocks [User].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockUser extends _i1.Mock implements _i4.User {
+class MockUser extends _i1.Mock implements _i5.User {
   MockUser() {
     _i1.throwOnMissingStub(this);
   }
@@ -569,23 +600,23 @@ class MockUser extends _i1.Mock implements _i4.User {
           as bool);
 
   @override
-  _i3.UserMetadata get metadata =>
+  _i4.UserMetadata get metadata =>
       (super.noSuchMethod(
             Invocation.getter(#metadata),
-            returnValue: _FakeUserMetadata_4(
+            returnValue: _FakeUserMetadata_5(
               this,
               Invocation.getter(#metadata),
             ),
           )
-          as _i3.UserMetadata);
+          as _i4.UserMetadata);
 
   @override
-  List<_i3.UserInfo> get providerData =>
+  List<_i4.UserInfo> get providerData =>
       (super.noSuchMethod(
             Invocation.getter(#providerData),
-            returnValue: <_i3.UserInfo>[],
+            returnValue: <_i4.UserInfo>[],
           )
-          as List<_i3.UserInfo>);
+          as List<_i4.UserInfo>);
 
   @override
   String get uid =>
@@ -596,15 +627,15 @@ class MockUser extends _i1.Mock implements _i4.User {
           as String);
 
   @override
-  _i4.MultiFactor get multiFactor =>
+  _i5.MultiFactor get multiFactor =>
       (super.noSuchMethod(
             Invocation.getter(#multiFactor),
-            returnValue: _FakeMultiFactor_5(
+            returnValue: _FakeMultiFactor_6(
               this,
               Invocation.getter(#multiFactor),
             ),
           )
-          as _i4.MultiFactor);
+          as _i5.MultiFactor);
 
   @override
   _i6.Future<void> delete() =>
@@ -624,80 +655,80 @@ class MockUser extends _i1.Mock implements _i4.User {
           as _i6.Future<String?>);
 
   @override
-  _i6.Future<_i3.IdTokenResult> getIdTokenResult([
+  _i6.Future<_i4.IdTokenResult> getIdTokenResult([
     bool? forceRefresh = false,
   ]) =>
       (super.noSuchMethod(
             Invocation.method(#getIdTokenResult, [forceRefresh]),
-            returnValue: _i6.Future<_i3.IdTokenResult>.value(
-              _FakeIdTokenResult_6(
+            returnValue: _i6.Future<_i4.IdTokenResult>.value(
+              _FakeIdTokenResult_7(
                 this,
                 Invocation.method(#getIdTokenResult, [forceRefresh]),
               ),
             ),
           )
-          as _i6.Future<_i3.IdTokenResult>);
+          as _i6.Future<_i4.IdTokenResult>);
 
   @override
-  _i6.Future<_i4.UserCredential> linkWithCredential(
-    _i3.AuthCredential? credential,
+  _i6.Future<_i5.UserCredential> linkWithCredential(
+    _i4.AuthCredential? credential,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#linkWithCredential, [credential]),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#linkWithCredential, [credential]),
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
-  _i6.Future<_i4.UserCredential> linkWithProvider(_i3.AuthProvider? provider) =>
+  _i6.Future<_i5.UserCredential> linkWithProvider(_i4.AuthProvider? provider) =>
       (super.noSuchMethod(
             Invocation.method(#linkWithProvider, [provider]),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#linkWithProvider, [provider]),
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
-  _i6.Future<_i4.UserCredential> reauthenticateWithProvider(
-    _i3.AuthProvider? provider,
+  _i6.Future<_i5.UserCredential> reauthenticateWithProvider(
+    _i4.AuthProvider? provider,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#reauthenticateWithProvider, [provider]),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#reauthenticateWithProvider, [provider]),
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
-  _i6.Future<_i4.UserCredential> reauthenticateWithPopup(
-    _i3.AuthProvider? provider,
+  _i6.Future<_i5.UserCredential> reauthenticateWithPopup(
+    _i4.AuthProvider? provider,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#reauthenticateWithPopup, [provider]),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#reauthenticateWithPopup, [provider]),
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
-  _i6.Future<void> reauthenticateWithRedirect(_i3.AuthProvider? provider) =>
+  _i6.Future<void> reauthenticateWithRedirect(_i4.AuthProvider? provider) =>
       (super.noSuchMethod(
             Invocation.method(#reauthenticateWithRedirect, [provider]),
             returnValue: _i6.Future<void>.value(),
@@ -706,20 +737,20 @@ class MockUser extends _i1.Mock implements _i4.User {
           as _i6.Future<void>);
 
   @override
-  _i6.Future<_i4.UserCredential> linkWithPopup(_i3.AuthProvider? provider) =>
+  _i6.Future<_i5.UserCredential> linkWithPopup(_i4.AuthProvider? provider) =>
       (super.noSuchMethod(
             Invocation.method(#linkWithPopup, [provider]),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#linkWithPopup, [provider]),
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
-  _i6.Future<void> linkWithRedirect(_i3.AuthProvider? provider) =>
+  _i6.Future<void> linkWithRedirect(_i4.AuthProvider? provider) =>
       (super.noSuchMethod(
             Invocation.method(#linkWithRedirect, [provider]),
             returnValue: _i6.Future<void>.value(),
@@ -728,14 +759,14 @@ class MockUser extends _i1.Mock implements _i4.User {
           as _i6.Future<void>);
 
   @override
-  _i6.Future<_i4.ConfirmationResult> linkWithPhoneNumber(
+  _i6.Future<_i5.ConfirmationResult> linkWithPhoneNumber(
     String? phoneNumber, [
-    _i4.RecaptchaVerifier? verifier,
+    _i5.RecaptchaVerifier? verifier,
   ]) =>
       (super.noSuchMethod(
             Invocation.method(#linkWithPhoneNumber, [phoneNumber, verifier]),
-            returnValue: _i6.Future<_i4.ConfirmationResult>.value(
-              _FakeConfirmationResult_3(
+            returnValue: _i6.Future<_i5.ConfirmationResult>.value(
+              _FakeConfirmationResult_4(
                 this,
                 Invocation.method(#linkWithPhoneNumber, [
                   phoneNumber,
@@ -744,22 +775,22 @@ class MockUser extends _i1.Mock implements _i4.User {
               ),
             ),
           )
-          as _i6.Future<_i4.ConfirmationResult>);
+          as _i6.Future<_i5.ConfirmationResult>);
 
   @override
-  _i6.Future<_i4.UserCredential> reauthenticateWithCredential(
-    _i3.AuthCredential? credential,
+  _i6.Future<_i5.UserCredential> reauthenticateWithCredential(
+    _i4.AuthCredential? credential,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#reauthenticateWithCredential, [credential]),
-            returnValue: _i6.Future<_i4.UserCredential>.value(
-              _FakeUserCredential_2(
+            returnValue: _i6.Future<_i5.UserCredential>.value(
+              _FakeUserCredential_3(
                 this,
                 Invocation.method(#reauthenticateWithCredential, [credential]),
               ),
             ),
           )
-          as _i6.Future<_i4.UserCredential>);
+          as _i6.Future<_i5.UserCredential>);
 
   @override
   _i6.Future<void> reload() =>
@@ -772,7 +803,7 @@ class MockUser extends _i1.Mock implements _i4.User {
 
   @override
   _i6.Future<void> sendEmailVerification([
-    _i3.ActionCodeSettings? actionCodeSettings,
+    _i4.ActionCodeSettings? actionCodeSettings,
   ]) =>
       (super.noSuchMethod(
             Invocation.method(#sendEmailVerification, [actionCodeSettings]),
@@ -782,14 +813,14 @@ class MockUser extends _i1.Mock implements _i4.User {
           as _i6.Future<void>);
 
   @override
-  _i6.Future<_i4.User> unlink(String? providerId) =>
+  _i6.Future<_i5.User> unlink(String? providerId) =>
       (super.noSuchMethod(
             Invocation.method(#unlink, [providerId]),
-            returnValue: _i6.Future<_i4.User>.value(
-              _FakeUser_7(this, Invocation.method(#unlink, [providerId])),
+            returnValue: _i6.Future<_i5.User>.value(
+              _FakeUser_8(this, Invocation.method(#unlink, [providerId])),
             ),
           )
-          as _i6.Future<_i4.User>);
+          as _i6.Future<_i5.User>);
 
   @override
   _i6.Future<void> updateEmail(String? newEmail) =>
@@ -811,7 +842,7 @@ class MockUser extends _i1.Mock implements _i4.User {
 
   @override
   _i6.Future<void> updatePhoneNumber(
-    _i3.PhoneAuthCredential? phoneCredential,
+    _i4.PhoneAuthCredential? phoneCredential,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#updatePhoneNumber, [phoneCredential]),
@@ -853,7 +884,7 @@ class MockUser extends _i1.Mock implements _i4.User {
   @override
   _i6.Future<void> verifyBeforeUpdateEmail(
     String? newEmail, [
-    _i3.ActionCodeSettings? actionCodeSettings,
+    _i4.ActionCodeSettings? actionCodeSettings,
   ]) =>
       (super.noSuchMethod(
             Invocation.method(#verifyBeforeUpdateEmail, [
