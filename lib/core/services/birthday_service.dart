@@ -35,6 +35,7 @@ class BirthdayService {
     // Send the message
     await _chatRepository.sendMessage(
       myUid: botUid,
+      senderName: 'Campus Connect 🎂',
       targetUid: userId,
       content:
           '🎂 Happy Birthday from Campus Connect! Wishing you an amazing day! 🎉',
