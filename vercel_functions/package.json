@@ -1,0 +1,12 @@
+{
+  "name": "run-campus-connect-notifications",
+  "version": "1.0.0",
+  "description": "Vercel serverless function — Firebase FCM notification gateway for RUN Campus Connect",
+  "type": "module",
+  "dependencies": {
+    "firebase-admin": "^13.8.0"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
