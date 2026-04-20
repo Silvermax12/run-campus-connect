@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/university_data.dart';
 import '../../../../core/providers/firebase_providers.dart';
-import '../../../../core/widgets/date_of_birth_picker.dart';
 import 'profile_controller.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
@@ -69,27 +68,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _pickDateOfBirth() async {
-    final result = await showDateOfBirthPicker(
-      context,
-      initialMonth: _birthMonth,
-      initialDay: _birthDay,
-    );
-    if (result != null) {
-      setState(() {
-        _birthMonth = result['month'];
-        _birthDay = result['day'];
-      });
-    }
-  }
-
-  String get _formattedBirthday {
-    if (_birthDay == null || _birthMonth == null) return 'Not set';
-    const months = [
-      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${months[_birthMonth!]} $_birthDay';
+  /// Returns the maximum number of days for [month] (1-12).
+  /// Uses 29 for February to allow leap-year birthdays.
+  int _daysInMonth(int month) {
+    const days = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return days[month];
   }
 
   Future<void> _saveProfile() async {
@@ -197,18 +180,80 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Date of Birth
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Colors.grey.shade300),
+              // Date of Birth — inline Month + Day dropdowns
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cake_outlined, size: 20, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Date of Birth (optional)',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
                 ),
-                leading: const Icon(Icons.cake_outlined),
-                title: const Text('Date of Birth'),
-                subtitle: Text(_formattedBirthday),
-                trailing: const Icon(Icons.calendar_today_outlined, size: 20),
-                onTap: _pickDateOfBirth,
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: DropdownButtonFormField<int>(
+                      value: _birthMonth,
+                      decoration: const InputDecoration(
+                        labelText: 'Month',
+                        prefixIcon: Icon(Icons.calendar_month_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 1,  child: Text('January')),
+                        DropdownMenuItem(value: 2,  child: Text('February')),
+                        DropdownMenuItem(value: 3,  child: Text('March')),
+                        DropdownMenuItem(value: 4,  child: Text('April')),
+                        DropdownMenuItem(value: 5,  child: Text('May')),
+                        DropdownMenuItem(value: 6,  child: Text('June')),
+                        DropdownMenuItem(value: 7,  child: Text('July')),
+                        DropdownMenuItem(value: 8,  child: Text('August')),
+                        DropdownMenuItem(value: 9,  child: Text('September')),
+                        DropdownMenuItem(value: 10, child: Text('October')),
+                        DropdownMenuItem(value: 11, child: Text('November')),
+                        DropdownMenuItem(value: 12, child: Text('December')),
+                      ],
+                      onChanged: (v) {
+                        setState(() {
+                          _birthMonth = v;
+                          if (_birthDay != null) {
+                            final max = _daysInMonth(v ?? 1);
+                            if (_birthDay! > max) _birthDay = max;
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: DropdownButtonFormField<int>(
+                      value: _birthDay,
+                      decoration: const InputDecoration(
+                        labelText: 'Day',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: List.generate(
+                        _daysInMonth(_birthMonth ?? 1),
+                        (i) => DropdownMenuItem(
+                          value: i + 1,
+                          child: Text('${i + 1}'),
+                        ),
+                      ),
+                      onChanged: (v) => setState(() => _birthDay = v),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 
