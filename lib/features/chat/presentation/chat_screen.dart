@@ -68,6 +68,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     ref.read(chatRepositoryProvider).sendMessage(
           myUid: myUid,
+          senderName: ref.read(firebaseAuthProvider).currentUser?.displayName ??
+              'Someone',
           targetUid: widget.targetUserId,
           content: content,
           replyTo: replyTo,
