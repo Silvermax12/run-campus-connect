@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../core/providers/firebase_providers.dart';
+import '../core/widgets/update_check_wrapper.dart';
 import '../features/auth/presentation/fresher/fresher_signin_screen.dart';
 import '../features/auth/presentation/fresher/fresher_signup_screen.dart';
 import '../features/auth/presentation/fresher/pending_verification_screen.dart';
@@ -26,13 +27,18 @@ import '../features/profile/presentation/edit_profile_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/profile/presentation/user_profile_screen.dart';
 import '../features/explore/presentation/contacts.dart';
+import '../features/update/presentation/update_center_page.dart';
 import 'widgets/app_shell.dart';
 
 part 'app_router.g.dart';
 
+/// Key for the root navigator. Used to show dialogs from above the router (e.g. update required).
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 @Riverpod(keepAlive: true)
 GoRouter appRouter(Ref ref) {
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     debugLogDiagnostics: false,
     initialLocation: LoginScreen.routePath,
     redirect: (context, state) async {
@@ -46,12 +52,15 @@ GoRouter appRouter(Ref ref) {
       final isFresherSignIn = path == FresherSignInScreen.routePath;
       final isPendingVerification = path == PendingVerificationScreen.routePath;
 
-      // Allow unauthenticated access to auth-related pages
+      // Allow unauthenticated access to auth-related pages and update center
+      final isUpdateCenter = path == UpdateCenterPage.routePath;
       final isAuthPage = isLoggingIn ||
           isVerifying ||
           isFresherSignUp ||
           isFresherSignIn ||
           isPendingVerification;
+
+      if (isUpdateCenter) return null;
 
       // Not logged in → must be on an auth page
       if (!isLoggedIn && !isAuthPage) {
@@ -104,12 +113,16 @@ GoRouter appRouter(Ref ref) {
     },
     refreshListenable: _AuthNotifier(ref),
     routes: [
-      GoRoute(
-        path: LoginScreen.routePath,
-        name: LoginScreen.routeName,
-        pageBuilder:
-            (context, state) => const NoTransitionPage(child: LoginScreen()),
-      ),
+      ShellRoute(
+        builder: (context, state, child) =>
+            UpdateCheckWrapper(child: child),
+        routes: [
+          GoRoute(
+            path: LoginScreen.routePath,
+            name: LoginScreen.routeName,
+            pageBuilder:
+                (context, state) => const NoTransitionPage(child: LoginScreen()),
+          ),
       GoRoute(
         path: VerifyEmailScreen.routePath,
         name: VerifyEmailScreen.routeName,
@@ -144,6 +157,23 @@ GoRouter appRouter(Ref ref) {
         pageBuilder:
             (context, state) =>
                 const NoTransitionPage(child: PendingVerificationScreen()),
+      ),
+      GoRoute(
+        path: UpdateCenterPage.routePath,
+        name: UpdateCenterPage.routeName,
+        pageBuilder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          final updateUrl = extra?['updateUrl'] as String? ?? '';
+          final newVersion = extra?['newVersion'] as String? ?? '';
+          final currentVersion = extra?['currentVersion'] as String? ?? '';
+          return NoTransitionPage(
+            child: UpdateCenterPage(
+              updateUrl: updateUrl,
+              newVersion: newVersion,
+              currentVersion: currentVersion,
+            ),
+          );
+        },
       ),
       StatefulShellRoute.indexedStack(
         builder:
@@ -270,6 +300,8 @@ GoRouter appRouter(Ref ref) {
         path: VisionMissionScreen.routePath,
         name: VisionMissionScreen.routeName,
         builder: (context, state) => const VisionMissionScreen(),
+      ),
+        ],
       ),
     ],
   );
