@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.1
 
 environment:
   sdk: ^3.7.2
@@ -49,21 +49,32 @@ dependencies:
   shimmer: ^3.0.0
   url_launcher: ^6.2.5
   webview_flutter: ^4.10.0
+  firebase_remote_config: ^5.5.0
+  package_info_plus: ^9.0.0
+  ota_update: ^7.1.0
+  permission_handler: ^11.3.1
+  flutter_local_notifications: ^19.5.0
+  connectivity_plus: ^7.0.0
+  firebase_messaging: ^15.2.10
 
 dev_dependencies:
+  flutter_launcher_icons: ^0.13.1
+  change_app_package_name: ^1.5.0
   flutter_test:
     sdk: flutter
-
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
   flutter_lints: ^5.0.0
   build_runner: ^2.5.4
   riverpod_generator: ^2.4.1
   mockito: ^5.4.6
   fake_cloud_firestore: ^3.1.0
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  min_sdk_android: 21 # matches your project's minSdk
+  adaptive_icon_background: "#003366" # Your RUN Navy Blue
+  adaptive_icon_foreground: "assets/images/app_icon.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -81,6 +92,7 @@ flutter:
     - assets/webpages/
     - assets/webpages/Governance.html
     - assets/webpages/Governance_files/
+    - shorebird.yaml
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
