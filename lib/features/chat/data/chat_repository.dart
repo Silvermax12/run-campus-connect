@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/providers/firebase_providers.dart';
+import '../../../core/services/notification_service.dart';
 import '../domain/chat.dart';
 import '../domain/message.dart';
 
@@ -9,13 +11,17 @@ part 'chat_repository.g.dart';
 
 @riverpod
 ChatRepository chatRepository(ChatRepositoryRef ref) {
-  return ChatRepository(ref.watch(firestoreProvider));
+  return ChatRepository(
+    ref.watch(firestoreProvider),
+    ref.watch(notificationServiceProvider),
+  );
 }
 
 class ChatRepository {
-  ChatRepository(this._firestore);
+  ChatRepository(this._firestore, this._notificationService);
 
   final FirebaseFirestore _firestore;
+  final NotificationService _notificationService;
 
   String getChatId(String uid1, String uid2) {
     return uid1.compareTo(uid2) < 0 ? '${uid1}_$uid2' : '${uid2}_$uid1';
@@ -23,6 +29,7 @@ class ChatRepository {
 
   Future<void> sendMessage({
     required String myUid,
+    required String senderName,
     required String targetUid,
     required String content,
     ReplyTo? replyTo,
@@ -63,6 +70,16 @@ class ChatRepository {
     }, SetOptions(merge: true));
 
     await batch.commit();
+
+    // Fire-and-forget push notification to the recipient.
+    // Errors are swallowed inside NotificationService to never disrupt the UX.
+    _notificationService.sendChatNotification(
+      recipientUid: targetUid,
+      senderName: senderName,
+      messagePreview: content.length > 80 ? '${content.substring(0, 80)}…' : content,
+      chatId: chatId,
+      targetUserId: myUid, // recipient taps → opens chat with the sender
+    );
   }
 
   Future<void> markChatAsRead(String chatId, String myUid) async {
@@ -97,7 +114,7 @@ class ChatRepository {
       });
     } catch (e) {
       // Silently catch errors to prevent UI disruption
-      print('Error marking chat as read: $e');
+      debugPrint('Error marking chat as read: $e');
     }
   }
 
