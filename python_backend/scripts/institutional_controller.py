@@ -6,6 +6,7 @@ Scrapers:
   - history.py          -> run_our_history/our_history
   - vis_mis_stra.py     -> run_vision_mission/vision_mission
   - moto,logo,anth.py   -> run_motto_logo_anthem/motto_logo_anthem
+  - news_scraper.py     -> run_news/{doc_id}
 
 Caching:
   - Uses a local JSON hash cache so we can skip Firebase initialization and writes
@@ -38,6 +39,7 @@ URL_GOV = "https://run.edu.ng/governance/"
 URL_HISTORY = "https://run.edu.ng/our-history/"
 URL_VMS = "https://run.edu.ng/vision-mission-strategy/"
 URL_MLA = "https://run.edu.ng/motto-logo-anthem/"
+COLLECTION_NEWS = "run_news"
 
 
 def _load_module_from_path(module_name: str, file_path: str):
@@ -176,11 +178,13 @@ def main() -> int:
     hist_mod = _load_module_from_path("history_scraper", os.path.join(SCRIPT_DIR, "history.py"))
     vms_mod = _load_module_from_path("vms_scraper", os.path.join(SCRIPT_DIR, "vis_mis_stra.py"))
     mla_mod = _load_module_from_path("mla_scraper", os.path.join(SCRIPT_DIR, "moto,logo,anth.py"))
+    news_mod = _load_module_from_path("news_scraper_mod", os.path.join(SCRIPT_DIR, "news_scraper.py"))
 
     raw_gov = _run_scraper(gov_mod.scrape_governance_live, URL_GOV)
     raw_hist = _run_scraper(hist_mod.scrape_campus_history_precise, URL_HISTORY)
     raw_vms = _run_scraper(vms_mod.scrape_vision_mission_strategy_final, URL_VMS)
     raw_mla = _run_scraper(mla_mod.scrape_motto_logo_anthem_complete, URL_MLA)
+    raw_news = news_mod.scrape_news()
 
     jobs: list[tuple[str, str, dict[str, Any]]] = []
 
@@ -192,6 +196,15 @@ def main() -> int:
         jobs.append(("run_vision_mission", "vision_mission", normalize_vision_mission(raw_vms)))
     if "error" not in raw_mla:
         jobs.append(("run_motto_logo_anthem", "motto_logo_anthem", normalize_motto_logo_anthem(raw_mla)))
+    if isinstance(raw_news, list):
+        for item in raw_news:
+            if not isinstance(item, dict):
+                continue
+            url = str(item.get("url", "")).strip()
+            if not url:
+                continue
+            doc_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:32]
+            jobs.append((COLLECTION_NEWS, doc_id, item))
 
     to_write: list[tuple[str, str, dict[str, Any]]] = []
     for collection, doc_id, payload in jobs:
