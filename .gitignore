@@ -58,6 +58,7 @@ python_backend/serviceAccountKey.json
 android/app/google-services.json
 lib/firebase_options.dart
 python_backend/scripts/institutional_cache.json
+python_backend/node_modules/
 
 # Vercel serverless functions
 vercel_functions/node_modules/
