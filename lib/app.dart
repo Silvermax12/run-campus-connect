@@ -16,7 +16,8 @@ class App extends ConsumerWidget {
 
     // Listen to auth state changes to initialise/teardown FCM accordingly.
     ref.listen(authStateChangesProvider, (previous, next) async {
-      final user = next.value;
+      final user = next.asData?.value;
+      final previousUser = previous?.asData?.value;
       final fcm = ref.read(fcmServiceProvider);
 
       if (user != null) {
@@ -25,9 +26,9 @@ class App extends ConsumerWidget {
             .read(profileRepositoryProvider)
             .fetchProfile(user.uid);
         await fcm.initialize(user.uid, profile);
-      } else if (previous?.value != null) {
+      } else if (previousUser != null) {
         // Logged out — clean up token and unsubscribe topics.
-        final prevUser = previous!.value!;
+        final prevUser = previousUser;
         final profile = await ref
             .read(profileRepositoryProvider)
             .fetchProfile(prevUser.uid);
