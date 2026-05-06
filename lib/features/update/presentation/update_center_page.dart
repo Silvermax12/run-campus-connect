@@ -4,449 +4,571 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:ota_update/ota_update.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
+import '../../../core/services/background_task_handler.dart';
+import '../../../core/services/download_engine.dart';
+import '../../../core/services/patching_service.dart';
+import '../../../core/services/update_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/flexible_update_overlay.dart';
+import '../../home/presentation/home_screen.dart';
 
 class UpdateCenterPage extends StatefulWidget {
   const UpdateCenterPage({
     super.key,
-    required this.updateUrl,
+    required this.packageType,
+    required this.downloadUrl,
+    required this.downloadSha256,
     required this.newVersion,
     required this.currentVersion,
+    required this.downloadSizeBytes,
   });
 
   static const routeName = 'update-center';
   static const routePath = '/update-center';
 
-  final String updateUrl;
+  final UpdatePackageType packageType;
+  final String downloadUrl;
+  final String downloadSha256;
   final String newVersion;
   final String currentVersion;
+  final int downloadSizeBytes;
 
   @override
   State<UpdateCenterPage> createState() => _UpdateCenterPageState();
 }
 
-class _UpdateCenterPageState extends State<UpdateCenterPage>
-    with WidgetsBindingObserver {
-  static const _downloadNotificationId = 4001;
-  static const _downloadChannelId = 'ota_update_downloads';
-  static const _downloadChannelName = 'App updates';
-  static const _downloadChannelDescription =
-      'Shows app update download progress';
-
-  static final FlutterLocalNotificationsPlugin _notifications =
+class _UpdateCenterPageState extends State<UpdateCenterPage> {
+  static const _notifId = 4001;
+  static const _notifChannelId = 'update_downloads';
+  static const _notifChannelName = 'App update downloads';
+  final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
-  static bool _notificationsInitialized = false;
-
-  OtaEvent? _currentEvent;
-  bool _hasStarted = false;
-  bool _wasInterruptedByBackground = false;
+  bool _notificationsReady = false;
+  static StreamSubscription<DownloadProgress>? _globalProgressSub;
   bool _isOffline = false;
-  int _retryAttempt = 0;
-  int? _nextRetryInSeconds;
-  Timer? _retryTimer;
-  StreamSubscription<OtaEvent>? _subscription;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  bool _isReadyToInstall = false;
+  String? _readyApkPath;
+  bool _isPatching = false;
+  static const _installAttemptVersionKey = 'installAttemptVersion';
+  static const _installAttemptBuildNumberKey = 'installAttemptBuildNumber';
+  static const _installAttemptAtKey = 'installAttemptAt';
+
+  bool get _usesFullApk => widget.packageType == UpdatePackageType.apk;
+
+  String get _downloadFileName =>
+      _usesFullApk ? 'full_update.apk' : 'diff.patch';
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    Connectivity().checkConnectivity().then((results) {
+      if (!mounted) return;
+      setState(() => _isOffline = results.contains(ConnectivityResult.none));
+    });
     _initNotifications();
-    _watchConnectivity();
+    _loadInstallReadyState();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _subscription?.cancel();
-    _connectivitySubscription?.cancel();
-    _retryTimer?.cancel();
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused && _isDownloadInProgress()) {
-      OtaUpdate().cancel();
-      _cancelScheduledRetry();
-      setState(() {
-        _wasInterruptedByBackground = true;
-        _currentEvent = OtaEvent(
-          OtaStatus.CANCELED,
-          'Download paused in background. Reopen app and retry.',
-        );
-      });
-      _showStateNotification(
-        title: 'Update paused',
-        body: 'Download paused because the app moved to background.',
-      );
-    }
-  }
-
   Future<void> _initNotifications() async {
-    if (_notificationsInitialized) return;
-
-    const initSettings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    if (_notificationsReady) return;
+    const init = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/launcher_icon'),
     );
-    await _notifications.initialize(initSettings);
-
-    final androidPlugin = _notifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-    await androidPlugin?.requestNotificationsPermission();
-
-    _notificationsInitialized = true;
+    await _notifications.initialize(init);
+    final android =
+        _notifications
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+    await android?.requestNotificationsPermission();
+    _notificationsReady = true;
   }
 
-  Future<void> _watchConnectivity() async {
-    Future<void> refreshConnectivity() async {
-      final results = await Connectivity().checkConnectivity();
-      if (!mounted) return;
-      setState(() {
-        _isOffline = results.contains(ConnectivityResult.none);
-      });
-    }
-
-    await refreshConnectivity();
-    _connectivitySubscription =
-        Connectivity().onConnectivityChanged.listen((results) {
-      if (!mounted) return;
-      setState(() {
-        _isOffline = results.contains(ConnectivityResult.none);
-      });
-    });
-  }
-
-  Future<void> _startDownload({bool isAutoRetry = false}) async {
-    if (!Platform.isAndroid) {
-      await _openStoreLink();
-      return;
-    }
-
-    final permission = Permission.requestInstallPackages;
-    var status = await permission.status;
-
-    if (!status.isGranted) {
-      status = await permission.request();
-      if (!status.isGranted) {
-        if (mounted && !isAutoRetry) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Install permission is required to update the app. '
-                'Please grant it in Settings.',
-              ),
-              duration: Duration(seconds: 4),
-            ),
-          );
-        }
-        return;
-      }
-    }
-
-    if (_isOffline) {
-      if (mounted && !isAutoRetry) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No internet connection. Please reconnect and try again.'),
-          ),
-        );
-      }
-      return;
-    }
-
-    _cancelScheduledRetry();
-    setState(() {
-      _hasStarted = true;
-      _wasInterruptedByBackground = false;
-      _currentEvent = null;
-      _nextRetryInSeconds = null;
-      if (!isAutoRetry) {
-        _retryAttempt = 0;
-      }
-    });
-    _showProgressNotification(progress: 0, indeterminate: true);
-
-    try {
-      _subscription = OtaUpdate()
-          .execute(
-            widget.updateUrl,
-            destinationFilename: 'run_campus_connect.apk',
-          )
-          .listen((OtaEvent event) {
-        if (mounted) {
-          setState(() => _currentEvent = event);
-        }
-        _handleEventNotifications(event);
-      }, onError: (Object error) {
-        if (mounted) {
-          setState(() {
-            _currentEvent = OtaEvent(OtaStatus.DOWNLOAD_ERROR, error.toString());
-          });
-        }
-        _scheduleAutoRetry();
-        _showStateNotification(
-          title: 'Update failed',
-          body: 'Download failed. Check network and try again.',
-        );
-      }, onDone: () {
-        if (_currentEvent?.status != OtaStatus.INSTALLATION_DONE) {
-          _notifications.cancel(_downloadNotificationId);
-        }
-      });
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _currentEvent = OtaEvent(OtaStatus.INTERNAL_ERROR, e.toString());
-        });
-      }
-      _scheduleAutoRetry();
-      _showStateNotification(
-        title: 'Update failed',
-        body: 'Could not start update download.',
-      );
-    }
-  }
-
-  void _handleEventNotifications(OtaEvent event) {
-    switch (event.status) {
-      case OtaStatus.DOWNLOADING:
-        _cancelScheduledRetry();
-        final n = int.tryParse(event.value ?? '');
-        _showProgressNotification(
-          progress: n ?? 0,
-          indeterminate: n == null,
-        );
-        break;
-      case OtaStatus.INSTALLING:
-        _cancelScheduledRetry();
-        _showStateNotification(
-          title: 'Installing update',
-          body: 'Downloaded. Waiting for install confirmation.',
-        );
-        break;
-      case OtaStatus.INSTALLATION_DONE:
-        _cancelScheduledRetry();
-        _showStateNotification(
-          title: 'Update complete',
-          body: 'Installation finished successfully.',
-        );
-        break;
-      case OtaStatus.DOWNLOAD_ERROR:
-      case OtaStatus.INTERNAL_ERROR:
-        _scheduleAutoRetry();
-        _showStateNotification(
-          title: 'Update failed',
-          body: 'Network issue. Auto-retry will run shortly.',
-        );
-        break;
-      case OtaStatus.CHECKSUM_ERROR:
-      case OtaStatus.PERMISSION_NOT_GRANTED_ERROR:
-      case OtaStatus.INSTALLATION_ERROR:
-      case OtaStatus.ALREADY_RUNNING_ERROR:
-        _cancelScheduledRetry();
-        _showStateNotification(
-          title: 'Update failed',
-          body: 'Download/installation failed. Retry from Update Center.',
-        );
-        break;
-      case OtaStatus.CANCELED:
-        _cancelScheduledRetry();
-        _showStateNotification(
-          title: 'Update canceled',
-          body: event.value ?? 'Download canceled.',
-        );
-        break;
-    }
-  }
-
-  void _scheduleAutoRetry() {
-    if (!mounted || _isOffline) return;
-    final lifecycleState = WidgetsBinding.instance.lifecycleState;
-    if (lifecycleState == AppLifecycleState.paused ||
-        lifecycleState == AppLifecycleState.detached ||
-        lifecycleState == AppLifecycleState.inactive) {
-      return;
-    }
-
-    if (_retryTimer?.isActive == true) return;
-    if (_retryAttempt >= 5) return;
-
-    _retryAttempt += 1;
-    final delaySeconds = [2, 4, 8, 16, 30][_retryAttempt - 1];
-
-    setState(() {
-      _nextRetryInSeconds = delaySeconds;
-    });
-
-    _retryTimer = Timer(Duration(seconds: delaySeconds), () {
-      if (!mounted) return;
-      _startDownload(isAutoRetry: true);
-    });
-  }
-
-  void _cancelScheduledRetry() {
-    _retryTimer?.cancel();
-    _retryTimer = null;
-    if (mounted && _nextRetryInSeconds != null) {
-      setState(() {
-        _nextRetryInSeconds = null;
-      });
-    }
-  }
-
-  Future<void> _showProgressNotification({
-    required int progress,
-    required bool indeterminate,
-  }) async {
-    final androidDetails = AndroidNotificationDetails(
-      _downloadChannelId,
-      _downloadChannelName,
-      channelDescription: _downloadChannelDescription,
-      importance: Importance.low,
-      priority: Priority.low,
-      ongoing: true,
-      autoCancel: false,
-      onlyAlertOnce: true,
-      showProgress: true,
-      maxProgress: 100,
-      progress: indeterminate ? 0 : progress.clamp(0, 100),
-      indeterminate: indeterminate,
-    );
-
-    await _notifications.show(
-      _downloadNotificationId,
-      'Downloading update',
-      indeterminate ? 'Preparing download...' : 'Downloading... $progress%',
-      NotificationDetails(android: androidDetails),
-    );
-  }
-
-  Future<void> _showStateNotification({
-    required String title,
-    required String body,
-  }) async {
-    const androidDetails = AndroidNotificationDetails(
-      _downloadChannelId,
-      _downloadChannelName,
-      channelDescription: _downloadChannelDescription,
+  Future<void> _showStateNotification(String title, String body) async {
+    await _initNotifications();
+    const details = AndroidNotificationDetails(
+      _notifChannelId,
+      _notifChannelName,
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
       ongoing: false,
       autoCancel: true,
-      onlyAlertOnce: true,
     );
-
     await _notifications.show(
-      _downloadNotificationId,
+      _notifId,
       title,
       body,
-      const NotificationDetails(android: androidDetails),
+      const NotificationDetails(android: details),
     );
   }
 
-  Future<void> _openStoreLink() async {
-    final uri = Uri.parse(widget.updateUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
+  Future<void> _loadInstallReadyState() async {
+    final box = await Hive.openBox<dynamic>('download_engine');
+    final state = Map<String, dynamic>.from(
+      box.get('state') ?? <String, dynamic>{},
+    );
+    final destination = state['destination'] as String?;
+    final isReady = state['isReadyToInstall'] == true;
+    final downloaded = (state['downloaded'] as num?)?.toInt() ?? 0;
+    final totalBytes = (state['totalBytes'] as num?)?.toInt() ?? 0;
+    final isPaused = state['isPaused'] == true;
+    final pausedByNetwork = state['pausedByNetwork'] == true;
+    if (!mounted) return;
+    if (isPaused) {
+      final progress = totalBytes > 0 ? (downloaded / totalBytes) : null;
+      FlexibleUpdateOverlay.instance.show(context);
+      FlexibleUpdateOverlay.instance.update(
+        FlexibleOverlayData(
+          state: FlexibleOverlayState.paused,
+          progressLabel: pausedByNetwork ? 'Waiting for internet...' : 'Paused',
+          progress: progress,
+          onResume: _resumeDownload,
+          onCancel: () => DownloadEngine.instance.cancel(),
+        ),
+      );
+    }
+    final readyExists =
+        destination != null &&
+        destination.isNotEmpty &&
+        File(destination).existsSync();
+    setState(() {
+      _isReadyToInstall = isReady && readyExists;
+      _readyApkPath = readyExists ? destination : null;
+    });
+  }
+
+  Future<void> _triggerInstallIfReady() async {
+    final apkPath = _readyApkPath;
+    if (apkPath == null || apkPath.isEmpty) return;
+    if (!File(apkPath).existsSync()) {
+      await _loadInstallReadyState();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Install package missing. Please download again.'),
+        ),
+      );
+      return;
+    }
+    await _triggerInstallWithTracking(apkPath);
+  }
+
+  Future<void> _retryPatchFromExistingDiff() async {
+    if (_isPatching) return;
+    final docs = await getApplicationDocumentsDirectory();
+    final patchPath = '${docs.path}/diff.patch';
+    if (!File(patchPath).existsSync()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Patch file not found. Please download again.'),
+        ),
+      );
+      return;
+    }
+    await _applyPatchAndPrepareInstall(patchPath: patchPath);
+  }
+
+  Future<void> _applyPatchAndPrepareInstall({required String patchPath}) async {
+    if (_isPatching) return;
+    _isPatching = true;
+    try {
+      FlexibleUpdateOverlay.instance.update(
+        const FlexibleOverlayData(
+          state: FlexibleOverlayState.patching,
+          progressLabel: 'Applying patch...',
+          progress: null,
+        ),
+      );
+      await _showStateNotification(
+        'Applying update',
+        'Patching downloaded file...',
+      );
+
+      final docs = await getApplicationDocumentsDirectory();
+      final patched = await PatchingService.applyPatch(
+        patchFilePath: patchPath,
+        outputApkPath: '${docs.path}/combined_update.apk',
+      );
+      final box = await Hive.openBox<dynamic>('download_engine');
+      final state = Map<String, dynamic>.from(
+        box.get('state') ?? <String, dynamic>{},
+      );
+      final persistedTotalBytes = (state['totalBytes'] as num?)?.toInt() ?? 0;
+      state['destination'] = patched.path;
+      state['downloaded'] = persistedTotalBytes;
+      state['totalBytes'] = persistedTotalBytes;
+      state['isReadyToInstall'] = true;
+      state['isDownloading'] = false;
+      state['isPaused'] = false;
+      state['pausedByNetwork'] = false;
+      state.remove(_installAttemptVersionKey);
+      state.remove(_installAttemptBuildNumberKey);
+      state.remove(_installAttemptAtKey);
+      await box.put('state', state);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open: ${widget.updateUrl}')),
+        setState(() {
+          _isReadyToInstall = true;
+          _readyApkPath = patched.path;
+        });
+      }
+      FlexibleUpdateOverlay.instance.update(
+        FlexibleOverlayData(
+          state: FlexibleOverlayState.readyToInstall,
+          progressLabel: 'Ready to install',
+          progress: 1,
+          onPrimaryAction: () => _triggerInstallWithTracking(patched.path),
+        ),
+      );
+      await _showStateNotification(
+        'Update Downloaded',
+        'Tap to install the update.',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Patch applied successfully. Your update is ready to install.',
+          ),
+        ),
+      );
+    } catch (e) {
+      FlexibleUpdateOverlay.instance.update(
+        FlexibleOverlayData(
+          state: FlexibleOverlayState.patchFailed,
+          progressLabel: 'Patching failed. Retry patch.',
+          progress: 1,
+          onPrimaryAction: _retryPatchFromExistingDiff,
+          onCancel: () => DownloadEngine.instance.cancel(),
+        ),
+      );
+      await _showStateNotification(
+        'Patch failed',
+        'Patch could not be applied. Open update panel and retry patch.',
+      );
+      rethrow;
+    } finally {
+      _isPatching = false;
+    }
+  }
+
+  Future<void> _prepareDownloadedApkInstall({required String apkPath}) async {
+    final apkFile = File(apkPath);
+    if (!apkFile.existsSync()) {
+      throw Exception('Downloaded APK file not found at $apkPath');
+    }
+
+    final box = await Hive.openBox<dynamic>('download_engine');
+    final state = Map<String, dynamic>.from(
+      box.get('state') ?? <String, dynamic>{},
+    );
+    state['destination'] = apkFile.path;
+    state['isReadyToInstall'] = true;
+    state['isDownloading'] = false;
+    state['isPaused'] = false;
+    state['pausedByNetwork'] = false;
+    state.remove(_installAttemptVersionKey);
+    state.remove(_installAttemptBuildNumberKey);
+    state.remove(_installAttemptAtKey);
+    await box.put('state', state);
+
+    if (mounted) {
+      setState(() {
+        _isReadyToInstall = true;
+        _readyApkPath = apkFile.path;
+      });
+    }
+    FlexibleUpdateOverlay.instance.update(
+      FlexibleOverlayData(
+        state: FlexibleOverlayState.readyToInstall,
+        progressLabel: 'Ready to install',
+        progress: 1,
+        onPrimaryAction: () => _triggerInstallWithTracking(apkFile.path),
+      ),
+    );
+    await _showStateNotification(
+      'Update Downloaded',
+      'Tap to install the update.',
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Update downloaded. Your update is ready to install.'),
+      ),
+    );
+  }
+
+  Future<void> _triggerInstallWithTracking(String apkPath) async {
+    await _recordInstallAttemptMetadata();
+    await PatchingService.triggerInstall(apkPath);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Installer opened. Complete installation to finish updating.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _recordInstallAttemptMetadata() async {
+    final info = await PackageInfo.fromPlatform();
+    final box = await Hive.openBox<dynamic>('download_engine');
+    final state = Map<String, dynamic>.from(
+      box.get('state') ?? <String, dynamic>{},
+    );
+    state[_installAttemptVersionKey] = info.version;
+    state[_installAttemptBuildNumberKey] = info.buildNumber;
+    state[_installAttemptAtKey] = DateTime.now().toIso8601String();
+    await box.put('state', state);
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return 'Unknown';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    var value = bytes.toDouble();
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+    final decimals = value >= 100 ? 0 : (value >= 10 ? 1 : 2);
+    return '${value.toStringAsFixed(decimals)} ${units[unitIndex]}';
+  }
+
+  Future<void> _startDownload() async {
+    if (_isOffline) return;
+    if (widget.downloadUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _usesFullApk
+                ? 'Full update URL is missing. Please try again later.'
+                : 'Patch update URL is missing. Please try again later.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final onMobileData = (await Connectivity().checkConnectivity()).contains(
+      ConnectivityResult.mobile,
+    );
+    if (onMobileData && widget.downloadSizeBytes > 50 * 1024 * 1024) {
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder:
+            (dialogContext) => AlertDialog(
+              title: const Text('Large update download'),
+              content: const Text(
+                'This update is larger than 50MB and you are on mobile data. Continue anyway?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Continue'),
+                ),
+              ],
+            ),
+      );
+      if (!mounted) return;
+      if (confirmed != true) return;
+    }
+
+    if (!mounted) return;
+    FlexibleUpdateOverlay.instance.show(context);
+    FlexibleUpdateOverlay.instance.update(
+      FlexibleOverlayData(
+        state: FlexibleOverlayState.downloading,
+        progressLabel: 'Preparing download...',
+        progress: 0,
+        onPause: () async {
+          await DownloadEngine.instance.pause(pausedByNetwork: false);
+          FlexibleUpdateOverlay.instance.update(
+            FlexibleOverlayData(
+              state: FlexibleOverlayState.paused,
+              progressLabel: 'Paused',
+              onResume: _resumeDownload,
+              onCancel: () => DownloadEngine.instance.cancel(),
+            ),
+          );
+        },
+        onCancel: () => DownloadEngine.instance.cancel(),
+      ),
+    );
+    await _globalProgressSub?.cancel();
+    _globalProgressSub = DownloadEngine.instance.progressStream.listen((
+      progress,
+    ) {
+      final progressValue =
+          progress.totalBytes == 0
+              ? 0.0
+              : (progress.bytesDownloaded / progress.totalBytes).clamp(
+                0.0,
+                1.0,
+              );
+      final pct =
+          progress.totalBytes == 0
+              ? 0
+              : ((progress.bytesDownloaded / progress.totalBytes) * 100)
+                  .round();
+      FlexibleUpdateOverlay.instance.update(
+        FlexibleOverlayData(
+          state:
+              progress.waitingForInternet
+                  ? FlexibleOverlayState.paused
+                  : FlexibleOverlayState.downloading,
+          progressLabel:
+              progress.waitingForInternet
+                  ? 'Waiting for internet...'
+                  : 'Downloading $pct% • ${(progress.speedBps / 1024).toStringAsFixed(1)} KB/s • ETA ${progress.smoothedEta?.inSeconds ?? '--'}s',
+          progress: progressValue,
+          onPause: () async {
+            await DownloadEngine.instance.pause(pausedByNetwork: false);
+            FlexibleUpdateOverlay.instance.update(
+              FlexibleOverlayData(
+                state: FlexibleOverlayState.paused,
+                progressLabel: 'Paused',
+                progress: progressValue,
+                onResume: _resumeDownload,
+                onCancel: () => DownloadEngine.instance.cancel(),
+              ),
+            );
+          },
+          onResume: _resumeDownload,
+          onCancel: () => DownloadEngine.instance.cancel(),
+        ),
+      );
+    });
+
+    if (!mounted) return;
+    // Do not pop directly here; this page was opened via go_router `go()`,
+    // and popping can leave navigator in a locked/disposed transition state.
+    GoRouter.of(context).go(HomeScreen.routePath);
+
+    try {
+      await DownloadEngine.instance.start(
+        url: widget.downloadUrl,
+        destinationFileName: _downloadFileName,
+        expectedSha256: widget.downloadSha256,
+        readyToInstallOnComplete: _usesFullApk,
+      );
+      final downloadedPath = await _completedDownloadPath();
+      if (downloadedPath == null) return;
+      if (_usesFullApk) {
+        await _prepareDownloadedApkInstall(apkPath: downloadedPath);
+      } else {
+        await _applyPatchAndPrepareInstall(patchPath: downloadedPath);
+      }
+    } catch (e) {
+      final errorText = e.toString();
+      final errorLower = errorText.toLowerCase();
+      if (errorLower.contains('cancel') || errorLower.contains('paused')) {
+        // The download was intentionally paused or cancelled.
+        // Do not display an error message.
+        return;
+      }
+
+      await BackgroundTaskHandler.scheduleRetryWatchdog();
+      final box = await Hive.openBox<dynamic>('download_engine');
+      final state = Map<String, dynamic>.from(
+        box.get('state') ?? <String, dynamic>{},
+      );
+      final downloaded = (state['downloaded'] as num?)?.toInt() ?? 0;
+      final totalBytes = (state['totalBytes'] as num?)?.toInt() ?? 0;
+      final progressValue =
+          totalBytes > 0 ? (downloaded / totalBytes).clamp(0.0, 1.0) : null;
+      final pausedByNetwork = state['pausedByNetwork'] == true || _isOffline;
+      final looksLikeNetworkIssue =
+          pausedByNetwork ||
+          errorText.contains('SocketException') ||
+          errorText.contains('Connection') ||
+          errorText.contains('timed out');
+      final looksLikePatchIssue =
+          !_usesFullApk &&
+          (errorText.contains('hpatchz failed') ||
+              errorText.contains('Patch file not found') ||
+              errorText.contains('Split APK install detected') ||
+              errorText.contains('hpatchz binary missing'));
+
+      if (looksLikePatchIssue) {
+        FlexibleUpdateOverlay.instance.update(
+          FlexibleOverlayData(
+            state: FlexibleOverlayState.patchFailed,
+            progress: progressValue ?? 1,
+            progressLabel: 'Patching failed. Retry patch.',
+            onPrimaryAction: _retryPatchFromExistingDiff,
+            onCancel: () => DownloadEngine.instance.cancel(),
+          ),
+        );
+      } else {
+        FlexibleUpdateOverlay.instance.update(
+          FlexibleOverlayData(
+            state: FlexibleOverlayState.paused,
+            progress: progressValue,
+            progressLabel:
+                looksLikeNetworkIssue
+                    ? 'Waiting for internet...'
+                    : 'Download failed. Tap Resume to retry.',
+            onResume: _resumeDownload,
+            onCancel: () => DownloadEngine.instance.cancel(),
+          ),
         );
       }
+      await _showStateNotification(
+        looksLikeNetworkIssue ? 'Download paused' : 'Update error',
+        looksLikeNetworkIssue
+            ? 'Waiting for internet connection.'
+            : (looksLikePatchIssue
+                ? 'Patching failed. Open update panel and retry patch.'
+                : 'Update download failed. Open update panel to retry.'),
+      );
     }
   }
 
-  String _statusText() {
-    final event = _currentEvent;
-    if (event == null) {
-      return _hasStarted ? 'Preparing...' : '';
+  Future<void> _resumeDownload() async {
+    FlexibleUpdateOverlay.instance.update(
+      FlexibleOverlayData(
+        state: FlexibleOverlayState.downloading,
+        progressLabel: 'Resuming download...',
+        onPause: () => DownloadEngine.instance.pause(pausedByNetwork: false),
+        onCancel: () => DownloadEngine.instance.cancel(),
+      ),
+    );
+    await DownloadEngine.instance.resume();
+    await _loadInstallReadyState();
+  }
+
+  Future<String?> _completedDownloadPath() async {
+    final state = await DownloadEngine.instance.readState();
+    if (state['isPaused'] == true || state['isDownloading'] == true) {
+      return null;
     }
 
-    switch (event.status) {
-      case OtaStatus.DOWNLOADING:
-        final pct = event.value;
-        return pct != null && pct.isNotEmpty
-            ? 'Downloading... $pct'
-            : 'Downloading...';
-      case OtaStatus.INSTALLING:
-        return 'Ready to Install';
-      case OtaStatus.INSTALLATION_DONE:
-        return 'Installation complete';
-      case OtaStatus.DOWNLOAD_ERROR:
-        if (_nextRetryInSeconds != null) {
-          return 'Download failed. Retrying in ${_nextRetryInSeconds}s '
-              '(attempt $_retryAttempt/5)...';
-        }
-        return 'Download failed: ${event.value ?? "Unknown error"}';
-      case OtaStatus.PERMISSION_NOT_GRANTED_ERROR:
-        return 'Permission denied. Please grant install permission.';
-      case OtaStatus.INSTALLATION_ERROR:
-        return 'Installation failed: ${event.value ?? "Unknown error"}';
-      case OtaStatus.CHECKSUM_ERROR:
-        return 'File verification failed';
-      case OtaStatus.INTERNAL_ERROR:
-        if (_nextRetryInSeconds != null) {
-          return 'Temporary error. Retrying in ${_nextRetryInSeconds}s '
-              '(attempt $_retryAttempt/5)...';
-        }
-        return 'Error: ${event.value ?? "Unknown error"}';
-      case OtaStatus.ALREADY_RUNNING_ERROR:
-        return 'Update already in progress';
-      case OtaStatus.CANCELED:
-        if (_wasInterruptedByBackground) {
-          return 'Download paused in background. Keep app open and retry.';
-        }
-        return 'Download canceled';
-    }
-  }
+    final destination = state['destination'] as String?;
+    if (destination == null || destination.isEmpty) return null;
 
-  double? _progressValue() {
-    final event = _currentEvent;
-    if (event == null || event.status != OtaStatus.DOWNLOADING) return null;
-    final pct = event.value;
-    if (pct == null || pct.isEmpty) return null;
-    final n = int.tryParse(pct);
-    if (n == null) return null;
-    return n / 100.0;
-  }
-
-  bool _showProgressBar() {
-    if (!_hasStarted) return false;
-    final event = _currentEvent;
-    if (event == null) return true;
-    return event.status == OtaStatus.DOWNLOADING ||
-        event.status == OtaStatus.INSTALLING;
-  }
-
-  bool _isDownloadInProgress() {
-    final event = _currentEvent;
-    if (!_hasStarted) return false;
-    if (event == null) return true;
-    return event.status == OtaStatus.DOWNLOADING ||
-        event.status == OtaStatus.INSTALLING;
-  }
-
-  bool _isError() {
-    final event = _currentEvent;
-    if (event == null) return false;
-    return event.status == OtaStatus.DOWNLOAD_ERROR ||
-        event.status == OtaStatus.INSTALLATION_ERROR ||
-        event.status == OtaStatus.PERMISSION_NOT_GRANTED_ERROR ||
-        event.status == OtaStatus.CHECKSUM_ERROR ||
-        event.status == OtaStatus.INTERNAL_ERROR;
+    final file = File(destination);
+    return file.existsSync() ? file.path : null;
   }
 
   @override
   Widget build(BuildContext context) {
-    final isAndroid = Platform.isAndroid;
-
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -463,9 +585,9 @@ class _UpdateCenterPageState extends State<UpdateCenterPage>
               Text(
                 'Update Center',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: AppTheme.runBlue,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  color: AppTheme.runBlue,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 24),
               _buildVersionComparison(),
@@ -491,7 +613,9 @@ class _UpdateCenterPageState extends State<UpdateCenterPage>
                 width: double.infinity,
                 child: FilledButton(
                   onPressed:
-                      (_hasStarted && !_isError()) || _isOffline ? null : _startDownload,
+                      _isReadyToInstall
+                          ? _triggerInstallIfReady
+                          : (_isOffline ? null : _startDownload),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.runGold,
                     foregroundColor: AppTheme.runBlue,
@@ -501,7 +625,7 @@ class _UpdateCenterPageState extends State<UpdateCenterPage>
                     ),
                   ),
                   child: Text(
-                    isAndroid ? 'Download & Install' : 'Update via App Store',
+                    _isReadyToInstall ? 'Install update' : 'Download update',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -509,24 +633,16 @@ class _UpdateCenterPageState extends State<UpdateCenterPage>
                   ),
                 ),
               ),
-              if (_showProgressBar()) ...[
-                const SizedBox(height: 24),
-                LinearProgressIndicator(
-                  value: _progressValue(),
-                  backgroundColor: Colors.grey.shade200,
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.runGold),
-                  minHeight: 6,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ],
-              if (_statusText().isNotEmpty) ...[
-                const SizedBox(height: 16),
+              const SizedBox(height: 10),
+              Text(
+                'Update size: ${_formatBytes(widget.downloadSizeBytes)}',
+                style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+              ),
+              if (_isReadyToInstall) ...[
+                const SizedBox(height: 12),
                 Text(
-                  _statusText(),
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: _isError() ? Colors.red : Colors.grey[700],
-                  ),
+                  'Update package is already downloaded. Tap Install update to continue.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -538,10 +654,11 @@ class _UpdateCenterPageState extends State<UpdateCenterPage>
   }
 
   Widget _buildVersionComparison() {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
       ),
@@ -552,10 +669,7 @@ class _UpdateCenterPageState extends State<UpdateCenterPage>
             children: [
               Text(
                 'Current',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
               const SizedBox(height: 4),
               Text(
@@ -573,10 +687,7 @@ class _UpdateCenterPageState extends State<UpdateCenterPage>
             children: [
               Text(
                 'New',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
               const SizedBox(height: 4),
               Text(
