@@ -7,6 +7,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../providers/firebase_providers.dart';
 import '../../features/profile/domain/user_profile.dart';
+import 'fcm_topic_helper.dart';
 
 part 'fcm_service.g.dart';
 
@@ -75,8 +76,7 @@ class FcmService {
       badge: true,
       sound: true,
     );
-    debugPrint(
-        '[FCM] Permission status: ${settings.authorizationStatus}');
+    debugPrint('[FCM] Permission status: ${settings.authorizationStatus}');
   }
 
   /// Returns the current permission status without prompting.
@@ -87,14 +87,20 @@ class FcmService {
 
   /// Call when the user's profile changes (faculty/dept) to re-subscribe topics.
   Future<void> updateTopicSubscriptions(
-      UserProfile? oldProfile, UserProfile? newProfile) async {
+    UserProfile? oldProfile,
+    UserProfile? newProfile,
+  ) async {
     if (oldProfile != null && oldProfile.faculty.isNotEmpty) {
-      await _messaging
-          .unsubscribeFromTopic('faculty_${oldProfile.faculty}');
+      final topic = FcmTopicHelper.facultyTopic(oldProfile.faculty);
+      if (topic != null) {
+        await _messaging.unsubscribeFromTopic(topic);
+      }
     }
     if (oldProfile != null && oldProfile.department.isNotEmpty) {
-      await _messaging
-          .unsubscribeFromTopic('department_${oldProfile.department}');
+      final topic = FcmTopicHelper.departmentTopic(oldProfile.department);
+      if (topic != null) {
+        await _messaging.unsubscribeFromTopic(topic);
+      }
     }
     await _subscribeToTopics(newProfile);
   }
@@ -102,19 +108,22 @@ class FcmService {
   /// Call on logout to clean the token from Firestore and unsubscribe topics.
   Future<void> onLogout(String uid, UserProfile? profile) async {
     try {
-      await _firestore
-          .collection('users')
-          .doc(uid)
-          .update({'fcmToken': FieldValue.delete()});
+      await _firestore.collection('users').doc(uid).update({
+        'fcmToken': FieldValue.delete(),
+      });
     } catch (_) {}
-    await _messaging.unsubscribeFromTopic('global');
+    await _messaging.unsubscribeFromTopic(FcmTopicHelper.global);
     if (profile != null && profile.faculty.isNotEmpty) {
-      await _messaging
-          .unsubscribeFromTopic('faculty_${profile.faculty}');
+      final topic = FcmTopicHelper.facultyTopic(profile.faculty);
+      if (topic != null) {
+        await _messaging.unsubscribeFromTopic(topic);
+      }
     }
     if (profile != null && profile.department.isNotEmpty) {
-      await _messaging
-          .unsubscribeFromTopic('department_${profile.department}');
+      final topic = FcmTopicHelper.departmentTopic(profile.department);
+      if (topic != null) {
+        await _messaging.unsubscribeFromTopic(topic);
+      }
     }
     await _messaging.deleteToken();
     _initialized = false;
@@ -125,8 +134,7 @@ class FcmService {
   // ---------------------------------------------------------------------------
 
   Future<void> _setupLocalNotifications() async {
-    const androidInit =
-        AndroidInitializationSettings('@mipmap/launcher_icon');
+    const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
     const initSettings = InitializationSettings(android: androidInit);
 
     await _localNotifications.initialize(initSettings);
@@ -134,7 +142,8 @@ class FcmService {
     // Create the Android notification channel
     await _localNotifications
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(_channel);
 
     // Needed so FCM foreground messages can show heads-up notifications
@@ -169,12 +178,18 @@ class FcmService {
   }
 
   Future<void> _subscribeToTopics(UserProfile? profile) async {
-    await _messaging.subscribeToTopic('global');
+    await _messaging.subscribeToTopic(FcmTopicHelper.global);
     if (profile != null && profile.faculty.isNotEmpty) {
-      await _messaging.subscribeToTopic('faculty_${profile.faculty}');
+      final topic = FcmTopicHelper.facultyTopic(profile.faculty);
+      if (topic != null) {
+        await _messaging.subscribeToTopic(topic);
+      }
     }
     if (profile != null && profile.department.isNotEmpty) {
-      await _messaging.subscribeToTopic('department_${profile.department}');
+      final topic = FcmTopicHelper.departmentTopic(profile.department);
+      if (topic != null) {
+        await _messaging.subscribeToTopic(topic);
+      }
     }
     debugPrint('[FCM] Topic subscriptions updated');
   }
