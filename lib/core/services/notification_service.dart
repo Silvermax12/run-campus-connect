@@ -19,8 +19,9 @@ class NotificationService {
 
   final FirebaseAuth _auth;
 
-  static final Uri _endpoint =
-      Uri.parse('${AppConfig.vercelBaseUrl}/api/send-notification');
+  static final Uri _endpoint = Uri.parse(
+    '${AppConfig.vercelBaseUrl}/api/send-notification',
+  );
 
   // ---------------------------------------------------------------------------
   // Public API
@@ -45,11 +46,7 @@ class NotificationService {
       'recipientUid': recipientUid,
       'title': senderName,
       'body': messagePreview,
-      'data': {
-        'type': 'chat',
-        'chatId': chatId,
-        'targetUserId': targetUserId,
-      },
+      'data': {'type': 'chat', 'chatId': chatId, 'targetUserId': targetUserId},
     });
   }
 
@@ -70,6 +67,22 @@ class NotificationService {
     });
   }
 
+  /// Sends a push notification to the admin when a new feedback is submitted.
+  Future<void> sendFeedbackNotification({
+    required String recipientUid,
+    required String senderName,
+    required String category,
+    required int rating,
+  }) async {
+    await _post({
+      'type': 'feedback',
+      'recipientUid': recipientUid,
+      'title': 'New feedback submitted',
+      'body': '$senderName • $category • $rating/5',
+      'data': {'type': 'feedback', 'screen': 'feedback'},
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
@@ -86,7 +99,9 @@ class NotificationService {
   Future<void> _post(Map<String, dynamic> body) async {
     final idToken = await _getIdToken();
     if (idToken == null) {
-      debugPrint('[NotificationService] No authenticated user — skipping push.');
+      debugPrint(
+        '[NotificationService] No authenticated user — skipping push.',
+      );
       return;
     }
 
@@ -102,7 +117,8 @@ class NotificationService {
 
       if (response.statusCode != 200) {
         debugPrint(
-            '[NotificationService] Non-200 response: ${response.statusCode} — ${response.body}');
+          '[NotificationService] Non-200 response: ${response.statusCode} — ${response.body}',
+        );
       } else {
         debugPrint('[NotificationService] Push sent: ${response.body}');
       }
