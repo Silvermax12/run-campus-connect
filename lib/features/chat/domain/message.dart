@@ -34,6 +34,8 @@ class ChatMessage {
   final String content;
   final DateTime timestamp;
   final ReplyTo? replyTo;
+  final List<String> deliveredTo;
+  final List<String> readBy;
 
   ChatMessage({
     required this.id,
@@ -41,6 +43,8 @@ class ChatMessage {
     required this.content,
     required this.timestamp,
     this.replyTo,
+    this.deliveredTo = const [],
+    this.readBy = const [],
   });
 
   factory ChatMessage.fromSnapshot(DocumentSnapshot doc) {
@@ -57,6 +61,8 @@ class ChatMessage {
       content: data['content'] as String? ?? '',
       timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       replyTo: replyTo,
+      deliveredTo: List<String>.from(data['deliveredTo'] as List? ?? const []),
+      readBy: List<String>.from(data['readBy'] as List? ?? const []),
     );
   }
 
@@ -66,6 +72,8 @@ class ChatMessage {
       'content': content,
       'timestamp': Timestamp.fromDate(timestamp),
       if (replyTo != null) 'replyTo': replyTo!.toMap(),
+      'deliveredTo': deliveredTo,
+      'readBy': readBy,
     };
   }
 }
