@@ -1,9 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/firebase_providers.dart';
+import '../../chat/presentation/chat_screen.dart';
+import '../../posts/presentation/comments/comment_screen.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../settings/presentation/admin_feedback_list_screen.dart';
 import '../data/notifications_provider.dart';
 import '../domain/notification.dart' as domain;
 
@@ -87,7 +91,11 @@ class _NotificationTab extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.notifications_none, size: 64, color: Colors.grey[400]),
+                Icon(
+                  Icons.notifications_none,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'No notifications yet',
@@ -123,16 +131,22 @@ class _NotificationTile extends ConsumerWidget {
 
     return ListTile(
       tileColor:
-          notification.isRead ? null : theme.primaryColor.withValues(alpha: 0.1),
+          notification.isRead
+              ? null
+              : theme.primaryColor.withValues(alpha: 0.1),
       leading: CircleAvatar(
-        backgroundImage: notification.senderPic.isNotEmpty
-            ? CachedNetworkImageProvider(notification.senderPic)
-            : null,
-        child: notification.senderPic.isEmpty
-            ? Text(notification.senderName.isNotEmpty
-                ? notification.senderName.characters.first
-                : '?')
-            : null,
+        backgroundImage:
+            notification.senderPic.isNotEmpty
+                ? CachedNetworkImageProvider(notification.senderPic)
+                : null,
+        child:
+            notification.senderPic.isEmpty
+                ? Text(
+                  notification.senderName.isNotEmpty
+                      ? notification.senderName.characters.first
+                      : '?',
+                )
+                : null,
       ),
       title: RichText(
         text: TextSpan(
@@ -157,8 +171,33 @@ class _NotificationTile extends ConsumerWidget {
               .read(profileRepositoryProvider)
               .markNotificationAsRead(notification.id);
         }
+        _openLinkedScreen(context);
       },
     );
+  }
+
+  void _openLinkedScreen(BuildContext context) {
+    switch (notification.type) {
+      case 'new_post':
+        final postId = notification.referenceId;
+        if (postId != null && postId.isNotEmpty) {
+          context.push(CommentScreen.routePath(postId));
+        }
+        return;
+      case 'chat':
+        if (notification.senderId.isNotEmpty) {
+          context.push(
+            ChatScreen.routePath(notification.senderId),
+            extra: notification.senderName,
+          );
+        }
+        return;
+      case 'feedback':
+        context.push(AdminFeedbackListScreen.routePath);
+        return;
+      default:
+        return;
+    }
   }
 
   String _formatTimestamp(DateTime timestamp) {
