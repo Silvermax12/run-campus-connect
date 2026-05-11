@@ -27,6 +27,20 @@ class ChatRepository {
     return uid1.compareTo(uid2) < 0 ? '${uid1}_$uid2' : '${uid2}_$uid1';
   }
 
+  Future<void> ensureChatExists({
+    required String myUid,
+    required String targetUid,
+  }) async {
+    final chatId = getChatId(myUid, targetUid);
+    final chatDoc = _firestore.collection('chats').doc(chatId);
+    await chatDoc.set({
+      'participants': [myUid, targetUid],
+      // Do not touch lastTime/lastMessage here to avoid inbox reordering
+      // when a user simply opens a chat.
+      'unreadCounts': {myUid: 0, targetUid: 0},
+    }, SetOptions(merge: true));
+  }
+
   Future<void> sendMessage({
     required String myUid,
     required String senderName,
@@ -48,6 +62,8 @@ class ChatRepository {
       'senderId': myUid,
       'content': content,
       'timestamp': FieldValue.serverTimestamp(),
+      'deliveredTo': [myUid],
+      'readBy': [myUid],
       if (replyTo != null) 'replyTo': replyTo.toMap(),
     };
     batch.set(newMessageDoc, messageData);
@@ -85,6 +101,7 @@ class ChatRepository {
   Future<void> markChatAsRead(String chatId, String myUid) async {
     final chatRef = _firestore.collection('chats').doc(chatId);
     final userRef = _firestore.collection('users').doc(myUid);
+    final messagesRef = chatRef.collection('messages');
 
     try {
       await _firestore.runTransaction((transaction) async {
@@ -97,24 +114,105 @@ class ChatRepository {
         final unreadCounts = data['unreadCounts'] as Map<String, dynamic>?;
         final myUnreadCount = (unreadCounts?[myUid] as num?)?.toInt() ?? 0;
 
-        if (myUnreadCount > 0) {
-          // Reset my unread count in the chat
-          transaction.set(chatRef, {
-            'unreadCounts': {
-              myUid: 0,
-            }
-          }, SetOptions(merge: true));
+        if (myUnreadCount <= 0) return;
 
-          // Decrement my global unread count
-          // FIXED: Use set with merge to prevent error if field doesn't exist
-          transaction.set(userRef, {
-            'totalUnreadMessages': FieldValue.increment(-myUnreadCount),
-          }, SetOptions(merge: true));
-        }
+        // Reset my unread count in the chat.
+        transaction.set(chatRef, {
+          'unreadCounts': {
+            myUid: 0,
+          }
+        }, SetOptions(merge: true));
+
+        // Decrement my global unread count.
+        transaction.set(userRef, {
+          'totalUnreadMessages': FieldValue.increment(-myUnreadCount),
+        }, SetOptions(merge: true));
       });
+
+      // Mark the newest unread incoming messages as delivered/read for sender ticks.
+      // Keep this outside transaction for simplicity and speed.
+      final unreadIncoming =
+          await messagesRef.orderBy('timestamp', descending: true).limit(50).get();
+
+      if (unreadIncoming.docs.isEmpty) return;
+
+      final batch = _firestore.batch();
+      var touched = 0;
+      for (final doc in unreadIncoming.docs) {
+        final data = doc.data();
+        if ((data['senderId'] as String?) == myUid) continue;
+        final readBy = List<String>.from(data['readBy'] as List? ?? const []);
+        final deliveredTo =
+            List<String>.from(data['deliveredTo'] as List? ?? const []);
+
+        final needsRead = !readBy.contains(myUid);
+        final needsDelivered = !deliveredTo.contains(myUid);
+        if (!needsRead && !needsDelivered) continue;
+
+        batch.set(doc.reference, {
+          'readBy': FieldValue.arrayUnion([myUid]),
+          'deliveredTo': FieldValue.arrayUnion([myUid]),
+        }, SetOptions(merge: true));
+        touched += 1;
+      }
+
+      if (touched > 0) {
+        await batch.commit();
+      }
     } catch (e) {
       // Silently catch errors to prevent UI disruption
       debugPrint('Error marking chat as read: $e');
+    }
+  }
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> watchChat(String chatId) {
+    return _firestore.collection('chats').doc(chatId).snapshots();
+  }
+
+  Future<void> setPresence({
+    required String uid,
+    required bool isOnline,
+  }) async {
+    await _firestore.collection('users').doc(uid).set({
+      'isOnline': isOnline,
+      'lastSeenAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> markIncomingAsDelivered({
+    required String chatId,
+    required String myUid,
+  }) async {
+    try {
+      final messages = await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
+          .limit(30)
+          .get();
+
+      if (messages.docs.isEmpty) return;
+
+      final batch = _firestore.batch();
+      var touched = 0;
+      for (final doc in messages.docs) {
+        final data = doc.data();
+        if ((data['senderId'] as String?) == myUid) continue;
+        final deliveredTo =
+            List<String>.from(data['deliveredTo'] as List? ?? const []);
+        if (deliveredTo.contains(myUid)) continue;
+        batch.set(doc.reference, {
+          'deliveredTo': FieldValue.arrayUnion([myUid]),
+        }, SetOptions(merge: true));
+        touched += 1;
+      }
+
+      if (touched > 0) {
+        await batch.commit();
+      }
+    } catch (e) {
+      debugPrint('Error marking delivered: $e');
     }
   }
 
