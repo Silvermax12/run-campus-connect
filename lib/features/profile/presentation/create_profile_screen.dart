@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/university_data.dart';
 import '../../../core/providers/firebase_providers.dart';
+import '../../../core/services/fcm_service.dart';
 import '../../home/presentation/home_screen.dart';
+import '../domain/user_profile.dart';
 
 class CreateProfileScreen extends ConsumerStatefulWidget {
   const CreateProfileScreen({super.key});
@@ -14,14 +16,15 @@ class CreateProfileScreen extends ConsumerStatefulWidget {
   static const routePath = '/create-profile';
 
   @override
-  ConsumerState<CreateProfileScreen> createState() => _CreateProfileScreenState();
+  ConsumerState<CreateProfileScreen> createState() =>
+      _CreateProfileScreenState();
 }
 
 class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _bioController = TextEditingController();
-  
+
   String? _selectedFaculty;
   String? _selectedDepartment;
   String _selectedLevel = '100';
@@ -31,6 +34,8 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
   int? _birthMonth;
 
   final List<String> _levels = ['100', '200', '300', '400', '500'];
+  List<String> get _filteredDepartments =>
+      RunUniversityData.departmentsForFaculty(_selectedFaculty);
 
   @override
   void initState() {
@@ -52,7 +57,6 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
     super.dispose();
   }
 
-
   /// Returns the maximum number of days for [month] (1-12).
   /// Uses 29 for February to allow leap-year birthdays.
   int _daysInMonth(int month) {
@@ -73,7 +77,8 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
 
       final firestore = ref.read(firestoreProvider);
       final displayName = _nameController.text.trim();
-      final parts = displayName.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+      final parts =
+          displayName.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
       final lastName = parts.isEmpty ? displayName : parts.last;
 
       await firestore.collection('users').doc(user.uid).set({
@@ -90,6 +95,21 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
         'birthMonth': _birthMonth,
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      await ref
+          .read(fcmServiceProvider)
+          .updateTopicSubscriptions(
+            null,
+            UserProfile(
+              uid: user.uid,
+              email: user.email ?? '',
+              displayName: displayName,
+              faculty: _selectedFaculty ?? '',
+              department: _selectedDepartment ?? '',
+              level: _selectedLevel,
+              photoUrl: user.photoURL ?? '',
+            ),
+          );
 
       if (mounted) {
         context.go(HomeScreen.routePath);
@@ -141,7 +161,7 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              
+
               // Full Name
               TextFormField(
                 controller: _nameController,
@@ -173,15 +193,19 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
                   border: OutlineInputBorder(),
                 ),
                 isExpanded: true,
-                items: RunUniversityData.faculties.map((faculty) {
-                  return DropdownMenuItem(
-                    value: faculty,
-                    child: Text(faculty, overflow: TextOverflow.ellipsis),
-                  );
-                }).toList(),
+                items:
+                    RunUniversityData.faculties.map((faculty) {
+                      return DropdownMenuItem(
+                        value: faculty,
+                        child: Text(faculty, overflow: TextOverflow.ellipsis),
+                      );
+                    }).toList(),
                 onChanged: (value) {
                   if (value != null) {
-                    setState(() => _selectedFaculty = value);
+                    setState(() {
+                      _selectedFaculty = value;
+                      _selectedDepartment = null;
+                    });
                   }
                 },
                 validator: (value) {
@@ -202,18 +226,23 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
                   border: OutlineInputBorder(),
                 ),
                 isExpanded: true,
-                items: RunUniversityData.departments.map((dept) {
-                  return DropdownMenuItem(
-                    value: dept,
-                    child: Text(dept, overflow: TextOverflow.ellipsis),
-                  );
-                }).toList(),
+                items:
+                    _filteredDepartments.map((dept) {
+                      return DropdownMenuItem(
+                        value: dept,
+                        child: Text(dept, overflow: TextOverflow.ellipsis),
+                      );
+                    }).toList(),
+                hint: const Text('Select a faculty first'),
                 onChanged: (value) {
-                  if (value != null) {
+                  if (_selectedFaculty != null && value != null) {
                     setState(() => _selectedDepartment = value);
                   }
                 },
                 validator: (value) {
+                  if (_selectedFaculty == null || _selectedFaculty!.isEmpty) {
+                    return 'Select faculty first';
+                  }
                   if (value == null || value.isEmpty) {
                     return 'Department is required';
                   }
@@ -230,12 +259,13 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
                   prefixIcon: Icon(Icons.grade_outlined),
                   border: OutlineInputBorder(),
                 ),
-                items: _levels.map((level) {
-                  return DropdownMenuItem(
-                    value: level,
-                    child: Text('$level Level'),
-                  );
-                }).toList(),
+                items:
+                    _levels.map((level) {
+                      return DropdownMenuItem(
+                        value: level,
+                        child: Text('$level Level'),
+                      );
+                    }).toList(),
                 onChanged: (value) {
                   if (value != null) {
                     setState(() => _selectedLevel = value);
@@ -249,7 +279,11 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Row(
                   children: [
-                    const Icon(Icons.cake_outlined, size: 20, color: Colors.grey),
+                    const Icon(
+                      Icons.cake_outlined,
+                      size: 20,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Date of Birth (optional)',
@@ -275,15 +309,15 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
                       ),
                       isExpanded: true,
                       items: const [
-                        DropdownMenuItem(value: 1,  child: Text('January')),
-                        DropdownMenuItem(value: 2,  child: Text('February')),
-                        DropdownMenuItem(value: 3,  child: Text('March')),
-                        DropdownMenuItem(value: 4,  child: Text('April')),
-                        DropdownMenuItem(value: 5,  child: Text('May')),
-                        DropdownMenuItem(value: 6,  child: Text('June')),
-                        DropdownMenuItem(value: 7,  child: Text('July')),
-                        DropdownMenuItem(value: 8,  child: Text('August')),
-                        DropdownMenuItem(value: 9,  child: Text('September')),
+                        DropdownMenuItem(value: 1, child: Text('January')),
+                        DropdownMenuItem(value: 2, child: Text('February')),
+                        DropdownMenuItem(value: 3, child: Text('March')),
+                        DropdownMenuItem(value: 4, child: Text('April')),
+                        DropdownMenuItem(value: 5, child: Text('May')),
+                        DropdownMenuItem(value: 6, child: Text('June')),
+                        DropdownMenuItem(value: 7, child: Text('July')),
+                        DropdownMenuItem(value: 8, child: Text('August')),
+                        DropdownMenuItem(value: 9, child: Text('September')),
                         DropdownMenuItem(value: 10, child: Text('October')),
                         DropdownMenuItem(value: 11, child: Text('November')),
                         DropdownMenuItem(value: 12, child: Text('December')),
@@ -348,19 +382,20 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+                child:
+                    _isLoading
+                        ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: theme.colorScheme.onPrimary,
+                          ),
+                        )
+                        : const Text(
+                          'Complete Profile',
+                          style: TextStyle(fontSize: 16),
                         ),
-                      )
-                    : const Text(
-                        'Complete Profile',
-                        style: TextStyle(fontSize: 16),
-                      ),
               ),
             ],
           ),
