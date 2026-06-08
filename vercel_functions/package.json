@@ -4,6 +4,7 @@
   "description": "Vercel serverless function — Firebase FCM notification gateway for RUN Campus Connect",
   "type": "module",
   "dependencies": {
+    "cloudinary": "^2.6.0",
     "firebase-admin": "^13.8.0"
   },
   "engines": {
