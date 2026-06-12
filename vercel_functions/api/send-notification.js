@@ -99,7 +99,7 @@ export default async function handler(req, res) {
     }
 
     try {
-      const messageId = await messaging.send({
+      const fcmMessageId = await messaging.send({
         token: fcmToken,
         notification: { title, body },
         data: stringifyData(data),
@@ -111,8 +111,35 @@ export default async function handler(req, res) {
           },
         },
       });
-      console.log(`[FCM] Chat notification sent: ${messageId}`);
-      return res.status(200).json({ success: true, messageId });
+      console.log(`[FCM] Chat notification sent: ${fcmMessageId}`);
+
+      // WhatsApp-style delivery: once FCM accepts the message for this device,
+      // mark it delivered even if the app never opens (killed / tray only).
+      const chatId = data.chatId;
+      const firestoreMessageId = data.messageId;
+      if (chatId && firestoreMessageId && recipientUid) {
+        try {
+          const msgRef = db
+            .collection('chats')
+            .doc(chatId)
+            .collection('messages')
+            .doc(firestoreMessageId);
+          const msgSnap = await msgRef.get();
+          if (msgSnap.exists && msgSnap.data()?.senderId !== recipientUid) {
+            await msgRef.set(
+              { deliveredTo: admin.firestore.FieldValue.arrayUnion(recipientUid) },
+              { merge: true }
+            );
+            console.log(
+              `[FCM] Marked delivered: chat=${chatId} message=${firestoreMessageId}`
+            );
+          }
+        } catch (deliveryErr) {
+          console.warn('[FCM] Could not mark message delivered:', deliveryErr.message);
+        }
+      }
+
+      return res.status(200).json({ success: true, messageId: fcmMessageId });
     } catch (err) {
       console.error('[FCM] Failed to send chat notification:', err.message);
       return res.status(500).json({ error: err.message });
