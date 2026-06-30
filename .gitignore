@@ -55,6 +55,7 @@ android/app/*.jks
 python_backend/venv/
 python_backend/.env
 python_backend/serviceAccountKey.json
+docs/uat_test_accounts.json
 android/app/google-services.json
 lib/firebase_options.dart
 python_backend/scripts/institutional_cache.json

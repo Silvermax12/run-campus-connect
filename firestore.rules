@@ -10,6 +10,38 @@ service cloud.firestore {
     function isAuthor(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
+    function isUnreadCounterWrite() {
+      // Sender may seed badge counter when receiver profile is missing.
+      // FieldValue.increment is evaluated against the projected write result.
+      return isSignedIn()
+        && request.resource.data.keys().hasOnly(['totalUnreadMessages']);
+    }
+    function isChatParticipantRepair() {
+      // Lets a user fix a broken chat doc (e.g. missing participants) when
+      // opening or messaging someone for the first time.
+      return isSignedIn()
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['participants', 'unreadCounts']);
+    }
+    function chatDocPath(chatId) {
+      return /databases/$(database)/documents/chats/$(chatId);
+    }
+    function chatExists(chatId) {
+      return exists(chatDocPath(chatId));
+    }
+    function isChatParticipant(chatId) {
+      return isSignedIn()
+        && chatExists(chatId)
+        && request.auth.uid in get(chatDocPath(chatId)).data.participants;
+    }
+    function isFeedbackAdmin() {
+      return isSignedIn()
+        && (
+          request.auth.uid == 'sic5nS2lR6QBiMljDOW1ZVWwESF3'
+          || request.auth.token.email == 'ale-alaba12850@run.edu.ng'
+        );
+    }
     function isOnlyCounterUpdate() {
       // Allow non-authors to update ONLY engagement counters.
       // NOTE: Firestore rules cannot reliably verify that a matching like/view
@@ -31,11 +63,16 @@ service cloud.firestore {
       allow read: if isSignedIn();
       
       // FIX: Allow update if it's YOU, OR if it's someone else ONLY touching the unread counter
-      allow update: if isAuthor(userId) 
-                    || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalUnreadMessages']));
-      
-      // Prevent strangers from creating/deleting your profile, only you can
-      allow create, delete: if isAuthor(userId);
+      allow update: if isAuthor(userId)
+                    || (isSignedIn()
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['totalUnreadMessages']));
+
+      // Allow message send to seed totalUnreadMessages when the receiver profile
+      // doc does not exist yet (merge create with increment resolves to an int).
+      allow create: if isAuthor(userId) || isUnreadCounterWrite();
+
+      allow delete: if isAuthor(userId);
 
       // Friends Subcollection
       match /friends/{friendId} {
@@ -79,15 +116,23 @@ service cloud.firestore {
 
     // --- 3. CHATS COLLECTION ---
     match /chats/{chatId} {
-      // READ & UPDATE: Check EXISTING data (resource.data)
-      allow read, update: if isSignedIn() && request.auth.uid in resource.data.participants;
-      
+      // READ existing chat docs: participant-only.
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participants;
+
+      // UPDATE: Participants, or self-heal broken participant lists on first open.
+      allow update: if isSignedIn()
+                    && (request.auth.uid in resource.data.participants
+                        || isChatParticipantRepair());
+
       // CREATE: Check NEW data (request.resource.data)
       allow create: if isSignedIn() && request.auth.uid in request.resource.data.participants;
 
       // Messages Subcollection
       match /messages/{messageId} {
-        allow read, write: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        // Allow empty reads while the parent chat doc is being created on first open.
+        allow read: if isSignedIn()
+          && (!chatExists(chatId) || isChatParticipant(chatId));
+        allow write: if isChatParticipant(chatId);
       }
     }
 
@@ -115,6 +160,25 @@ service cloud.firestore {
       allow read: if isSignedIn() && resource.data.recipientId == request.auth.uid;
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+    }
+
+    // --- 6. FEEDBACK COLLECTION ---
+    match /feedback/{feedbackId} {
+      // Regular users can read only their own feedback.
+      // Admin can read all feedback.
+      allow read: if isFeedbackAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      // Feedback creator must be the authenticated user.
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'pending';
+
+      // Only admin can update status.
+      allow update: if isFeedbackAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status in ['pending', 'reviewed', 'resolved'];
+
+      allow delete: if false;
     }
   }
 }
