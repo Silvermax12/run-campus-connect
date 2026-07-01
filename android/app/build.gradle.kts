@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
     id("com.google.gms.google-services")
+    id("com.google.firebase.firebase-perf")
     // END: FlutterFire Configuration
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -20,7 +21,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.run.campus_connect"
     compileSdk = 36
-    ndkVersion = "27.2.12479018"
+    ndkVersion = "30.0.14904198"
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
