@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../config/app_config.dart';
 import '../config/cloudinary_config.dart';
 
 part 'cloudinary_service.g.dart';
@@ -12,13 +13,13 @@ part 'cloudinary_service.g.dart';
 class CloudinaryUploadResult {
   const CloudinaryUploadResult({
     required this.secureUrl,
-    required this.deleteToken,
     required this.publicId,
+    this.deleteToken,
   });
 
   final String secureUrl;
-  final String deleteToken;
   final String publicId;
+  final String? deleteToken;
 }
 
 class CloudinaryService {
@@ -50,8 +51,9 @@ class CloudinaryService {
     }
   }
 
-  /// Uploads an image and returns a `delete_token` that can later be used to
-  /// delete it *without* an API secret (works with unsigned uploads).
+  /// Uploads a post image via the unsigned upload preset.
+  /// Returns [publicId] for server-side deletion (unsigned uploads cannot
+  /// request a delete token from Cloudinary).
   Future<CloudinaryUploadResult> uploadPostImage(
     File file, {
     String folder = 'run_campus_posts',
@@ -64,7 +66,6 @@ class CloudinaryService {
 
       request.fields['upload_preset'] = CloudinaryConfig.uploadPreset;
       request.fields['folder'] = folder;
-      request.fields['return_delete_token'] = 'true';
 
       request.files.add(
         await http.MultipartFile.fromPath('file', file.path),
@@ -81,24 +82,46 @@ class CloudinaryService {
 
       final jsonResponse = jsonDecode(response.body);
       final secureUrl = jsonResponse['secure_url'] as String?;
-      final deleteToken = jsonResponse['delete_token'] as String?;
       final publicId = jsonResponse['public_id'] as String?;
+      final deleteToken = jsonResponse['delete_token'] as String?;
 
-      if (secureUrl == null || deleteToken == null || publicId == null) {
+      if (secureUrl == null || publicId == null) {
         throw Exception('Cloudinary response missing required fields.');
       }
 
       return CloudinaryUploadResult(
         secureUrl: secureUrl,
-        deleteToken: deleteToken,
         publicId: publicId,
+        deleteToken: deleteToken,
       );
     } catch (e) {
       throw Exception('Image upload failed: $e');
     }
   }
 
-  /// Deletes an uploaded asset using a `delete_token` returned from upload.
+  /// Deletes an uploaded asset by [publicId] via the Vercel gateway.
+  Future<void> deleteByPublicId({
+    required String publicId,
+    required String idToken,
+  }) async {
+    final url = Uri.parse('${AppConfig.vercelBaseUrl}/api/delete-cloudinary-asset');
+    final response = await http.post(
+      url,
+      headers: {
+        'Authorization': 'Bearer $idToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'publicId': publicId}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to delete image: ${response.statusCode} ${response.body}',
+      );
+    }
+  }
+
+  /// Deletes an uploaded asset using a legacy `delete_token`, if present.
   Future<void> deleteByToken(String deleteToken) async {
     final url =
         Uri.parse('https://api.cloudinary.com/v1_1/${CloudinaryConfig.cloudName}/delete_by_token');
