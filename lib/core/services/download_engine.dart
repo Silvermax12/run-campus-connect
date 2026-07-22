@@ -32,6 +32,9 @@ class DownloadEngine {
 
   static const _boxName = 'download_engine';
   static const _stateKey = 'state';
+  static const installAttemptVersionKey = 'installAttemptVersion';
+  static const installAttemptBuildNumberKey = 'installAttemptBuildNumber';
+  static const installAttemptAtKey = 'installAttemptAt';
   final Dio _dio = Dio();
   final StreamController<DownloadProgress> _progressController =
       StreamController.broadcast();
@@ -47,10 +50,52 @@ class DownloadEngine {
 
   Future<Box<dynamic>> _box() => Hive.openBox<dynamic>(_boxName);
 
+  Future<Map<String, dynamic>> readState() async {
+    final box = await _box();
+    return Map<String, dynamic>.from(box.get(_stateKey) ?? <String, dynamic>{});
+  }
+
+  Future<void> clearPostInstallState() async {
+    final box = await _box();
+    final state = Map<String, dynamic>.from(
+      box.get(_stateKey) ?? <String, dynamic>{},
+    );
+    if (state['isDownloading'] == true) {
+      return;
+    }
+
+    final docs = await getApplicationDocumentsDirectory();
+    final filesToDelete = <String>{
+      '${docs.path}/diff.patch',
+      '${docs.path}/combined_update.apk',
+      '${docs.path}/full_update.apk',
+      '${docs.path}/full_update.apk.tmp',
+    };
+    final destination = state['destination'] as String?;
+    if (destination != null && destination.isNotEmpty) {
+      filesToDelete.add(destination);
+      filesToDelete.add('$destination.tmp');
+    }
+
+    for (final path in filesToDelete) {
+      try {
+        final file = File(path);
+        if (file.existsSync()) {
+          await file.delete();
+        }
+      } catch (_) {
+        // Best-effort cleanup only; stale files are non-fatal.
+      }
+    }
+
+    await box.delete(_stateKey);
+  }
+
   Future<void> start({
     required String url,
     required String destinationFileName,
     String? expectedSha256,
+    bool readyToInstallOnComplete = true,
   }) async {
     _isPaused = false;
     _isCancelled = false;
@@ -67,6 +112,7 @@ class DownloadEngine {
       'url': url,
       'destination': output.path,
       'expectedSha256': expectedSha256,
+      'readyToInstallOnComplete': readyToInstallOnComplete,
       'downloaded': already,
       'totalBytes': 0,
       'isPaused': false,
@@ -82,6 +128,7 @@ class DownloadEngine {
       outputFile: output,
       resumeFrom: already,
       expectedSha256: expectedSha256,
+      readyToInstallOnComplete: readyToInstallOnComplete,
     );
   }
 
@@ -90,7 +137,9 @@ class DownloadEngine {
     _cancelToken?.cancel('paused');
     await FlutterForegroundTask.stopService();
     final box = await _box();
-    final state = Map<String, dynamic>.from(box.get(_stateKey) ?? <String, dynamic>{});
+    final state = Map<String, dynamic>.from(
+      box.get(_stateKey) ?? <String, dynamic>{},
+    );
     state['isDownloading'] = false;
     state['isPaused'] = true;
     state['pausedByNetwork'] = pausedByNetwork;
@@ -99,10 +148,14 @@ class DownloadEngine {
 
   Future<void> resume() async {
     final box = await _box();
-    final state = Map<String, dynamic>.from(box.get(_stateKey) ?? <String, dynamic>{});
+    final state = Map<String, dynamic>.from(
+      box.get(_stateKey) ?? <String, dynamic>{},
+    );
     final url = state['url'] as String?;
     final destination = state['destination'] as String?;
     final expectedSha256 = state['expectedSha256'] as String?;
+    final readyToInstallOnComplete =
+        state['readyToInstallOnComplete'] as bool? ?? true;
     if (url == null || destination == null) return;
     state['isPaused'] = false;
     state['pausedByNetwork'] = false;
@@ -112,6 +165,7 @@ class DownloadEngine {
       url: url,
       destinationFileName: output.uri.pathSegments.last,
       expectedSha256: expectedSha256,
+      readyToInstallOnComplete: readyToInstallOnComplete,
     );
   }
 
@@ -120,7 +174,9 @@ class DownloadEngine {
     _cancelToken?.cancel('cancelled');
     await FlutterForegroundTask.stopService();
     final box = await _box();
-    final state = Map<String, dynamic>.from(box.get(_stateKey) ?? <String, dynamic>{});
+    final state = Map<String, dynamic>.from(
+      box.get(_stateKey) ?? <String, dynamic>{},
+    );
     final destination = state['destination'] as String?;
     if (destination != null) {
       final tmp = File('$destination.tmp');
@@ -137,10 +193,11 @@ class DownloadEngine {
     required File outputFile,
     required int resumeFrom,
     required String? expectedSha256,
+    required bool readyToInstallOnComplete,
   }) async {
     var nextResumeFrom = resumeFrom;
     var attempt = 0;
-    
+
     if (!await FlutterForegroundTask.isRunningService) {
       await FlutterForegroundTask.startService(
         notificationTitle: 'Downloading update',
@@ -157,6 +214,7 @@ class DownloadEngine {
           outputFile: outputFile,
           resumeFrom: nextResumeFrom,
           expectedSha256: expectedSha256,
+          readyToInstallOnComplete: readyToInstallOnComplete,
         );
         return;
       } on DioException {
@@ -176,6 +234,7 @@ class DownloadEngine {
     required File outputFile,
     required int resumeFrom,
     required String? expectedSha256,
+    required bool readyToInstallOnComplete,
   }) async {
     final sink = tempFile.openWrite(mode: FileMode.append);
     var downloaded = resumeFrom;
@@ -193,13 +252,16 @@ class DownloadEngine {
 
       final stream = response.data?.stream;
       if (stream == null) throw Exception('No response stream');
-      final contentRange = response.headers.value(HttpHeaders.contentRangeHeader);
-      final contentLength = int.tryParse(
+      final contentRange = response.headers.value(
+        HttpHeaders.contentRangeHeader,
+      );
+      final contentLength =
+          int.tryParse(
             response.headers.value(HttpHeaders.contentLengthHeader) ?? '',
           ) ??
           0;
-      totalSize = _extractTotalSize(contentRange) ??
-          (contentLength + resumeFrom);
+      totalSize =
+          _extractTotalSize(contentRange) ?? (contentLength + resumeFrom);
 
       var lastTick = DateTime.now();
       var lastBytes = downloaded;
@@ -214,29 +276,38 @@ class DownloadEngine {
           final speed = deltaSec <= 0 ? 0.0 : deltaBytes / deltaSec;
           _samples.add(_SpeedSample(now, speed));
           _samples.removeWhere((s) => now.difference(s.time).inSeconds > 5);
-          final avgSpeed = _samples.isEmpty
-              ? 0.0
-              : _samples.map((s) => s.speed).reduce((a, b) => a + b) / _samples.length;
+          final avgSpeed =
+              _samples.isEmpty
+                  ? 0.0
+                  : _samples.map((s) => s.speed).reduce((a, b) => a + b) /
+                      _samples.length;
           final remaining = totalSize - downloaded;
           final eta =
-              avgSpeed <= 0 ? null : Duration(seconds: (remaining / avgSpeed).round());
-          _progressController.add(DownloadProgress(
-            bytesDownloaded: downloaded,
-            totalBytes: totalSize,
-            speedBps: avgSpeed,
-            smoothedEta: eta,
-            waitingForInternet: _pausedByConnectivity,
-          ));
+              avgSpeed <= 0
+                  ? null
+                  : Duration(seconds: (remaining / avgSpeed).round());
+          _progressController.add(
+            DownloadProgress(
+              bytesDownloaded: downloaded,
+              totalBytes: totalSize,
+              speedBps: avgSpeed,
+              smoothedEta: eta,
+              waitingForInternet: _pausedByConnectivity,
+            ),
+          );
           if (totalSize > 0) {
             FlutterForegroundTask.updateService(
               notificationTitle: 'Downloading update',
-              notificationText: '${((downloaded / totalSize) * 100).toStringAsFixed(1)}%',
+              notificationText:
+                  '${((downloaded / totalSize) * 100).toStringAsFixed(1)}%',
             );
           }
           lastTick = now;
           lastBytes = downloaded;
           final box = await _box();
-          final state = Map<String, dynamic>.from(box.get(_stateKey) ?? <String, dynamic>{});
+          final state = Map<String, dynamic>.from(
+            box.get(_stateKey) ?? <String, dynamic>{},
+          );
           state['downloaded'] = downloaded;
           state['totalBytes'] = totalSize;
           await box.put(_stateKey, state);
@@ -248,7 +319,7 @@ class DownloadEngine {
     }
 
     if (_isPaused || _isCancelled) return;
-    
+
     await FlutterForegroundTask.stopService();
 
     _progressController.add(
@@ -269,11 +340,13 @@ class DownloadEngine {
       }
     }
     final box = await _box();
-    final state = Map<String, dynamic>.from(box.get(_stateKey) ?? <String, dynamic>{});
+    final state = Map<String, dynamic>.from(
+      box.get(_stateKey) ?? <String, dynamic>{},
+    );
     state['isDownloading'] = false;
     state['isPaused'] = false;
     state['pausedByNetwork'] = false;
-    state['isReadyToInstall'] = true;
+    state['isReadyToInstall'] = readyToInstallOnComplete;
     state['downloaded'] = totalSize;
     state['totalBytes'] = totalSize;
     await box.put(_stateKey, state);
@@ -281,7 +354,9 @@ class DownloadEngine {
 
   void _observeConnectivity() {
     _connectivitySub?.cancel();
-    _connectivitySub = Connectivity().onConnectivityChanged.listen((result) async {
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((
+      result,
+    ) async {
       final online = !result.contains(ConnectivityResult.none);
       if (!online) {
         _pausedByConnectivity = true;
