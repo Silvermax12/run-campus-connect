@@ -105,12 +105,6 @@ flutter test
 
 ---
 
-## License
-
-Private project — not published to pub.dev (`publish_to: 'none'`).
-
----
-
 ## Contributing
 
 1. Read the [Development Guide](docs/DEVELOPMENT_GUIDE.md)
