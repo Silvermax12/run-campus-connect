@@ -1,12 +1,15 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../providers/firebase_providers.dart';
 import '../../features/profile/domain/user_profile.dart';
+import 'chat_delivery_ack.dart';
 import 'fcm_topic_helper.dart';
 
 part 'fcm_service.g.dart';
@@ -32,7 +35,7 @@ final FlutterLocalNotificationsPlugin _localNotifications =
 // when the app is in the background/terminated, so no extra work is needed here.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('[FCM] Background message: ${message.messageId}');
+  await handleChatDeliveryFromPush(message.data);
 }
 
 // ---------------------------------------------------------------------------
@@ -194,17 +197,39 @@ class FcmService {
     debugPrint('[FCM] Topic subscriptions updated');
   }
 
+  /// Maximum characters of the message body shown in a notification.
+  /// Longer bodies are summarized with an ellipsis (WhatsApp-style preview).
+  static const _maxNotificationBodyLength = 40;
+
+  static String? _summarizeBody(String? body) {
+    if (body == null || body.length <= _maxNotificationBodyLength) return body;
+    return '${body.substring(0, _maxNotificationBodyLength)}…';
+  }
+
   /// Shows a local heads-up notification while the app is in the foreground.
+  /// Skipped entirely when the user is actively using the app (resumed) —
+  /// in-app UI (badges, streams) already reflects the new content.
   void _listenForeground() {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('[FCM] Foreground message: ${message.messageId}');
+
+      // Mark delivered as soon as the push reaches this device.
+      unawaited(_acknowledgeDeliveryFromPush(message.data));
+
+      // Don't show system notifications while the user is inside the app.
+      final lifecycleState = WidgetsBinding.instance.lifecycleState;
+      if (lifecycleState == AppLifecycleState.resumed) {
+        debugPrint('[FCM] App is active — suppressing notification.');
+        return;
+      }
+
       final notification = message.notification;
       final android = message.notification?.android;
       if (notification != null && android != null) {
         _localNotifications.show(
           notification.hashCode,
           notification.title,
-          notification.body,
+          _summarizeBody(notification.body),
           NotificationDetails(
             android: AndroidNotificationDetails(
               _channel.id,
@@ -261,6 +286,31 @@ class FcmService {
   String _encodePayload(Map<String, dynamic> data) {
     return data.entries.map((e) => '${e.key}=${e.value}').join('&');
   }
+
+  Future<void> _acknowledgeDeliveryFromPush(Map<String, dynamic> data) async {
+    final parsed = parseChatDeliveryFromFcmData(data);
+    if (parsed == null) return;
+
+    await acknowledgeChatDelivery(
+      firestore: _firestore,
+      chatId: parsed.chatId,
+      recipientUid: parsed.recipientUid,
+      messageId: parsed.messageId,
+    );
+  }
+}
+
+/// Top-level helper for the background FCM isolate ([main.dart] registers it).
+Future<void> handleChatDeliveryFromPush(Map<String, dynamic> data) async {
+  final parsed = parseChatDeliveryFromFcmData(data);
+  if (parsed == null) return;
+
+  await acknowledgeChatDelivery(
+    firestore: FirebaseFirestore.instance,
+    chatId: parsed.chatId,
+    recipientUid: parsed.recipientUid,
+    messageId: parsed.messageId,
+  );
 }
 
 @Riverpod(keepAlive: true)

@@ -60,13 +60,17 @@ For full setup (Firebase, Python backend, Vercel, Cloudinary), see **[Getting St
 
 | Document | Description |
 |----------|-------------|
-| [Documentation Index](docs/README.md) | Full documentation map |
-| [Architecture](docs/ARCHITECTURE.md) | System design and data flows |
-| [Getting Started](docs/GETTING_STARTED.md) | Environment setup |
-| [Features](docs/FEATURES.md) | Screens and business rules |
-| [Database Schema](docs/DATABASE_SCHEMA.md) | Firestore collections |
-| [API Reference](docs/API_REFERENCE.md) | Python & Vercel endpoints |
-| [Development Guide](docs/DEVELOPMENT_GUIDE.md) | Conventions and workflows |
+| [Documentation Index](docs/README.md) | Master documentation portal and system map |
+| [Architecture](docs/ARCHITECTURE.md) | Multi-tier topology, layers, and data flows |
+| [Getting Started](docs/GETTING_STARTED.md) | Prerequisites, local setup, and troubleshooting |
+| [Features](docs/FEATURES.md) | Complete feature specs, screens, and business rules |
+| [Database Schema](docs/DATABASE_SCHEMA.md) | Cloud Firestore collections, ERDs, and local storage |
+| [Security & Rules](docs/SECURITY_AND_RULES.md) | Line-by-line Firestore and Storage security rules |
+| [API Reference](docs/API_REFERENCE.md) | Python FastAPI, Vercel push gateway, and native channels |
+| [Development Guide](docs/DEVELOPMENT_GUIDE.md) | Riverpod patterns, conventions, and build workflows |
+| [Testing & QA](docs/TESTING_AND_QA.md) | 109-test-case testing matrix and automated UAT suite |
+| [Scrapers & Maintenance](docs/SCRAPERS_AND_MAINTENANCE.md) | Web scrapers, data pipelines, and database utilities |
+| [Codebase Inventory](docs/CODEBASE_INVENTORY.md) | Comprehensive file-by-file catalog of every project file |
 
 ---
 

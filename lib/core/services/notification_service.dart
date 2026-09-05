@@ -40,13 +40,20 @@ class NotificationService {
     required String messagePreview,
     required String chatId,
     required String targetUserId,
+    required String messageId,
   }) async {
     await _post({
       'type': 'chat',
       'recipientUid': recipientUid,
       'title': senderName,
       'body': messagePreview,
-      'data': {'type': 'chat', 'chatId': chatId, 'targetUserId': targetUserId},
+      'data': {
+        'type': 'chat',
+        'chatId': chatId,
+        'targetUserId': targetUserId,
+        'recipientUid': recipientUid,
+        'messageId': messageId,
+      },
     });
   }
 
